@@ -1,37 +1,44 @@
 package main
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
-const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 func (app *App) generateShortID() string {
-	rand.Seed(time.Now().UnixNano())
-
 	app.dataMutex.RLock()
 	defer app.dataMutex.RUnlock()
 
 	for attempt := 0; attempt < 100; attempt++ {
-		id := make([]byte, 4)
-		for i := range id {
-			id[i] = chars[rand.Intn(len(chars))]
+		id, err := generateRandomString(4)
+		if err != nil {
+			continue // Or handle error appropriately
 		}
-		idStr := string(id)
-
-		if _, exists := app.clipboardData[idStr]; !exists {
-			return idStr
+		if _, exists := app.clipboardData[id]; !exists {
+			return id
 		}
 	}
 
-	id := make([]byte, 6)
-	for i := range id {
-		id[i] = chars[rand.Intn(len(chars))]
+	id, _ := generateRandomString(6)
+	return id
+}
+
+func generateRandomString(length int) (string, error) {
+	var sb strings.Builder
+	sb.Grow(length)
+	for i := 0; i < length; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			return "", err
+		}
+		sb.WriteByte(chars[num.Int64()])
 	}
-	return string(id)
+	return sb.String(), nil
 }
 
 func getTempDir() string {

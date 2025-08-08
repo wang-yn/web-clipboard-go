@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +52,7 @@ func (app *App) getText(c *gin.Context) {
 		app.security = NewSecurityService()
 	}
 
-	id := c.Param("id")
+	id := strings.ToLower(c.Param("id"))
 
 	if !app.security.ValidateAccessRequest(c) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Access denied"})
@@ -144,7 +145,7 @@ func (app *App) getFile(c *gin.Context) {
 		app.security = NewSecurityService()
 	}
 
-	id := c.Param("id")
+	id := strings.ToLower(c.Param("id"))
 
 	if !app.security.ValidateAccessRequest(c) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Access denied"})
@@ -157,7 +158,7 @@ func (app *App) getFile(c *gin.Context) {
 
 	if !exists || item.Type != "file" || item.ExpiresAt.Before(time.Now().UTC()) {
 		app.security.LogAccess(c, id, "file", false)
-		c.JSON(http.StatusNotFound, gin.H{"error": "File not found or expired"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found or expired"})
 		return
 	}
 
@@ -173,7 +174,7 @@ func (app *App) getFile(c *gin.Context) {
 }
 
 func (app *App) deleteItem(c *gin.Context) {
-	id := c.Param("id")
+	id := strings.ToLower(c.Param("id"))
 
 	app.dataMutex.Lock()
 	item, exists := app.clipboardData[id]
