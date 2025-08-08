@@ -1,0 +1,40 @@
+# Binaries
+*.exe
+web-clipboard-go
+
+# Development files
+.git
+.gitignore
+*.md
+README.md
+
+# Build artifacts
+*.log
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.go
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Scripts
+*.bat
+*.ps1
+*.sh
+
+# Documentation
+docs/
+examples/

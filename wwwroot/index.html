@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Clipboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media (max-width: 640px) {
+            .container { padding: 1rem; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto max-w-4xl py-4 px-2 sm:px-4">
+        <!-- Language Switcher -->
+        <div class="flex justify-center mb-4">
+            <div class="bg-white rounded-lg shadow-sm p-2 flex gap-2">
+                <button id="langEn" class="px-3 py-1 rounded text-sm font-medium transition-colors">English</button>
+                <button id="langZh" class="px-3 py-1 rounded text-sm font-medium transition-colors">中文</button>
+            </div>
+        </div>
+        
+        <h1 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6 sm:mb-8" data-i18n="title">Web Clipboard</h1>
+        <p class="text-center text-sm text-gray-600 mb-6" data-i18n="expiry-notice">⏰ Content expires after 10 minutes</p>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <!-- Text Clipboard Section -->
+            <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                <h2 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700" data-i18n="text-clipboard">📝 Text Clipboard</h2>
+                
+                <div class="mb-4">
+                    <textarea 
+                        id="textContent" 
+                        data-i18n-placeholder="text-placeholder"
+                        class="w-full h-32 sm:h-40 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    ></textarea>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <button 
+                        id="saveText" 
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors text-sm"
+                        data-i18n="save-text"
+                    >
+                        💾 Save Text
+                    </button>
+                    <button 
+                        id="copyText" 
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium transition-colors text-sm"
+                        data-i18n="copy-text"
+                    >
+                        📋 Copy Text
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <input 
+                        type="text" 
+                        id="textId" 
+                        data-i18n-placeholder="text-id-placeholder"
+                        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        maxlength="6"
+                        style="text-transform: uppercase"
+                    />
+                </div>
+                
+                <button 
+                    id="loadText" 
+                    class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors text-sm"
+                    data-i18n="load-text"
+                >
+                    📥 Load Text
+                </button>
+            </div>
+
+            <!-- File Clipboard Section -->
+            <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+                <h2 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700" data-i18n="file-clipboard">📁 File Clipboard</h2>
+                
+                <div class="mb-4">
+                    <div class="relative">
+                        <input 
+                            type="file" 
+                            id="fileInput" 
+                            class="hidden"
+                            accept="*/*"
+                        />
+                        <button 
+                            id="selectFile" 
+                            class="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-500 transition-colors text-sm"
+                            data-i18n="select-file"
+                        >
+                            📎 Click to select file or drag & drop
+                        </button>
+                    </div>
+                    <div id="selectedFile" class="mt-2 text-sm text-gray-600"></div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <button 
+                        id="uploadFile" 
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
+                        disabled
+                        data-i18n="upload-file"
+                    >
+                        ⬆️ Upload File
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <input 
+                        type="text" 
+                        id="fileId" 
+                        data-i18n-placeholder="file-id-placeholder"
+                        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        maxlength="6"
+                        style="text-transform: uppercase"
+                    />
+                </div>
+                
+                <button 
+                    id="downloadFile" 
+                    class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors text-sm"
+                    data-i18n="download-file"
+                >
+                    📥 Download File
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="mt-4 p-3 rounded-lg hidden text-sm"></div>
+        
+        <!-- Recent Items -->
+        <div class="mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <h2 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700" data-i18n="recent-items">📋 Recent Items</h2>
+            <div id="recentItems" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

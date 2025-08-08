@@ -1,0 +1,33 @@
+# Minimal Dockerfile using scratch base image
+FROM golang:alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o web-clipboard-go .
+
+# Final stage - scratch (smallest possible image)
+FROM scratch
+
+# Copy CA certificates
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy timezone data
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Copy binary and static files
+COPY --from=builder /app/web-clipboard-go /
+COPY --from=builder /app/wwwroot /wwwroot
+
+# Expose port
+EXPOSE 5000
+
+# Run the application
+CMD ["/web-clipboard-go"]

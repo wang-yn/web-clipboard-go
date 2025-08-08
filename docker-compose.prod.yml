@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  web-clipboard-go:
+    build:
+      context: .
+      dockerfile: Dockerfile.minimal
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - temp_data:/tmp/web-clipboard-go
+    restart: unless-stopped
+    networks:
+      - web-clipboard-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - web-clipboard-go
+    restart: unless-stopped
+    networks:
+      - web-clipboard-net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 64M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+
+volumes:
+  temp_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  web-clipboard-net:
+    driver: bridge
