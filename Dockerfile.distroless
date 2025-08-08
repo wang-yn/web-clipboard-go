@@ -1,0 +1,30 @@
+# Distroless Dockerfile - secure minimal image
+FROM golang:alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-w -s -extldflags "-static"' -o web-clipboard-go .
+
+# Final stage - distroless (Google's minimal base image)
+FROM gcr.io/distroless/static:nonroot
+
+# Copy binary and static files
+COPY --from=builder /app/web-clipboard-go /
+COPY --from=builder /app/wwwroot /wwwroot
+
+# Use non-root user (already configured in distroless)
+USER nonroot:nonroot
+
+# Expose port
+EXPOSE 5000
+
+# Run the application
+ENTRYPOINT ["/web-clipboard-go"]

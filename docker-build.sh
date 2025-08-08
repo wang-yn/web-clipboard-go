@@ -16,6 +16,10 @@ echo "Building minimal image..."
 docker build -t "${IMAGE_NAME}:minimal" -f Dockerfile.minimal .
 
 echo ""
+echo "Building distroless image..."
+docker build -t "${IMAGE_NAME}:distroless" -f Dockerfile.distroless .
+
+echo ""
 echo "Build completed successfully!"
 echo ""
 echo "Available images:"
@@ -25,6 +29,7 @@ echo ""
 echo "To run the application:"
 echo "  docker run -p 5000:5000 ${IMAGE_NAME}:${TAG}"
 echo "  docker run -p 5000:5000 ${IMAGE_NAME}:minimal"
+echo "  docker run -p 5000:5000 ${IMAGE_NAME}:distroless"
 echo ""
 echo "Or use docker-compose:"
 echo "  docker-compose up -d"

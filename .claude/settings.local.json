@@ -9,7 +9,10 @@
       "Bash(go build:*)",
       "Bash(git init:*)",
       "Bash(git branch:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git config:*)",
+      "Bash(git commit:*)",
+      "Bash(docker build:*)"
     ],
     "deny": []
   }

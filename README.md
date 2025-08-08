@@ -73,8 +73,9 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### Available Docker Images
 
-- `web-clipboard-go:latest` - Standard Alpine-based image (~15MB)
-- `web-clipboard-go:minimal` - Minimal scratch-based image (~8MB)
+- `web-clipboard-go:latest` - Standard Alpine-based image (~35MB)
+- `web-clipboard-go:minimal` - Minimal scratch-based image (~13MB)  
+- `web-clipboard-go:distroless` - Google distroless image (~14MB)
 
 ### Makefile Commands
 
