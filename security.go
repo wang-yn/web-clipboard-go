@@ -12,10 +12,10 @@ import (
 )
 
 type SecurityService struct {
-	failedAttempts   map[string]*FailedAttemptInfo
-	blockedIPs       map[string]bool
-	mutex            sync.RWMutex
-	blockedExtensions map[string]bool
+	failedAttempts     map[string]*FailedAttemptInfo
+	blockedIPs         map[string]bool
+	mutex              sync.RWMutex
+	blockedExtensions  map[string]bool
 	suspiciousPatterns []string
 }
 
