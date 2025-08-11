@@ -16,6 +16,8 @@ func main() {
 	app := &App{
 		clipboardData: make(map[string]*ClipboardItem),
 		tempDir:       getTempDir(),
+		security:      NewSecurityService(),
+		rateLimiter:   NewRateLimitService(),
 	}
 
 	app.initTempDir()
@@ -123,10 +125,6 @@ func (app *App) performCleanup() {
 		fmt.Printf("Cleaned up %d expired items\n", removedCount)
 	}
 
-	if app.security != nil {
-		app.security.CleanupExpired()
-	}
-	if app.rateLimiter != nil {
-		app.rateLimiter.CleanupExpired()
-	}
+	app.security.CleanupExpired()
+	app.rateLimiter.CleanupExpired()
 }

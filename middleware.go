@@ -51,9 +51,6 @@ func (app *App) securityHeadersMiddleware() gin.HandlerFunc {
 
 func (app *App) rateLimitMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if app.rateLimiter == nil {
-			app.rateLimiter = NewRateLimitService()
-		}
 
 		ip := app.security.getClientIP(c)
 		endpoint := c.Request.Method

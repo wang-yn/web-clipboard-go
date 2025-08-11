@@ -13,9 +13,6 @@ import (
 )
 
 func (app *App) saveText(c *gin.Context) {
-	if app.security == nil {
-		app.security = NewSecurityService()
-	}
 
 	var request TextRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -48,9 +45,6 @@ func (app *App) saveText(c *gin.Context) {
 }
 
 func (app *App) getText(c *gin.Context) {
-	if app.security == nil {
-		app.security = NewSecurityService()
-	}
 
 	id := strings.ToLower(c.Param("id"))
 
@@ -77,9 +71,6 @@ func (app *App) getText(c *gin.Context) {
 }
 
 func (app *App) saveFile(c *gin.Context) {
-	if app.security == nil {
-		app.security = NewSecurityService()
-	}
 
 	if !app.security.ValidateFileRequest(c) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Request rejected for security reasons"})
@@ -141,9 +132,6 @@ func (app *App) saveFile(c *gin.Context) {
 }
 
 func (app *App) getFile(c *gin.Context) {
-	if app.security == nil {
-		app.security = NewSecurityService()
-	}
 
 	id := strings.ToLower(c.Param("id"))
 
