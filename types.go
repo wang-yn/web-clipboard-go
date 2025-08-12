@@ -7,7 +7,7 @@ import (
 
 type App struct {
 	clipboardData map[string]*ClipboardItem
-	dataMutex     sync.RWMutex
+	dataMutex     *sync.RWMutex
 	tempDir       string
 	rateLimiter   *RateLimitService
 	security      *SecurityService
