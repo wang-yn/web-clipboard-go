@@ -69,17 +69,8 @@ func (app *App) setupRouter() *gin.Engine {
 	router.GET("/app.js", func(c *gin.Context) {
 		c.File("./wwwroot/app.js")
 	})
-	router.GET("/app-minimal.js", func(c *gin.Context) {
-		c.File("./wwwroot/app-minimal.js")
-	})
 	router.GET("/i18n.js", func(c *gin.Context) {
 		c.File("./wwwroot/i18n.js")
-	})
-	router.GET("/i18n-minimal.js", func(c *gin.Context) {
-		c.File("./wwwroot/i18n-minimal.js")
-	})
-	router.GET("/index-minimal.html", func(c *gin.Context) {
-		c.File("./wwwroot/index-minimal.html")
 	})
 
 	// Default route serves index.html
