@@ -7,6 +7,22 @@ class WebClipboard{
     init(){
         this.bindEvents();
         this.updateRecent();
+        this.startCleanup();
+    }
+    
+    startCleanup(){
+        // Periodically check and clean up expired items (every minute)
+        setInterval(()=>this.cleanupExpired(),60000);
+    }
+    
+    cleanupExpired(){
+        const now=new Date();
+        const valid=this.recent.filter(i=>new Date(i.exp)>now);
+        if(valid.length!==this.recent.length){
+            this.recent=valid;
+            localStorage.setItem('recent',JSON.stringify(this.recent));
+            this.updateRecent();
+        }
     }
     
     bindEvents(){
