@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -38,12 +39,21 @@ func main() {
 
 	app.startCleanupService()
 
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	fmt.Println("Shutting down server...")
 	app.stopCleanupService()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+	fmt.Println("Server exiting")
 }
 
 func (app *App) setupRouter() *gin.Engine {
@@ -71,6 +81,9 @@ func (app *App) setupRouter() *gin.Engine {
 	})
 	router.GET("/i18n.js", func(c *gin.Context) {
 		c.File("./wwwroot/i18n.js")
+	})
+	router.GET("/favicon.ico", func(c *gin.Context) {
+		c.File("./wwwroot/favicon.ico")
 	})
 
 	// Default route serves index.html
