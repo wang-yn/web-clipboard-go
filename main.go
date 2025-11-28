@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,11 +15,20 @@ import (
 )
 
 func main() {
+	// Initialize user manager
+	userManager, err := NewUserManager("./data")
+	if err != nil {
+		log.Fatal("Failed to initialize user manager:", err)
+	}
+
 	app := &App{
 		clipboardData: make(map[string]*ClipboardItem),
+		dataMutex:     &sync.RWMutex{},
 		tempDir:       getTempDir(),
 		security:      NewSecurityService(),
 		rateLimiter:   NewRateLimitService(),
+		userManager:   userManager,
+		authService:   NewAuthService(userManager),
 	}
 
 	app.initTempDir()
@@ -65,19 +75,46 @@ func (app *App) setupRouter() *gin.Engine {
 	router.Use(app.securityHeadersMiddleware())
 	router.Use(app.rateLimitMiddleware())
 
+	// Public auth endpoints
+	auth := router.Group("/api/auth")
+	{
+		auth.POST("/login", app.login)
+		auth.POST("/logout", app.authMiddleware(), app.logout)
+		auth.GET("/me", app.authMiddleware(), app.getCurrentUser)
+	}
+
+	// Protected API endpoints (require authentication)
 	api := router.Group("/api")
+	api.Use(app.authMiddleware())
 	{
 		api.POST("/text", app.saveText)
 		api.GET("/text/:id", app.getText)
 		api.POST("/file", app.saveFile)
 		api.GET("/file/:id", app.getFile)
 		api.DELETE("/:id", app.deleteItem)
-		api.GET("/cleanup", app.cleanup)
 	}
 
-	// Serve specific static files
+	// Admin-only endpoints
+	users := api.Group("/users")
+	users.Use(app.adminMiddleware())
+	{
+		users.POST("", app.createUser)
+		users.GET("", app.listUsers)
+		users.GET("/:id", app.getUser)
+		users.PUT("/:id", app.updateUser)
+		users.DELETE("/:id", app.deleteUser)
+		users.PUT("/:id/password", app.changeUserPassword)
+	}
+
+	// Admin-only cleanup endpoint
+	api.GET("/cleanup", app.adminMiddleware(), app.cleanup)
+
+	// Serve specific static files (public)
 	router.GET("/app.js", func(c *gin.Context) {
 		c.File("./wwwroot/app.js")
+	})
+	router.GET("/auth.js", func(c *gin.Context) {
+		c.File("./wwwroot/auth.js")
 	})
 	router.GET("/i18n.js", func(c *gin.Context) {
 		c.File("./wwwroot/i18n.js")
@@ -86,7 +123,10 @@ func (app *App) setupRouter() *gin.Engine {
 		c.File("./wwwroot/favicon.ico")
 	})
 
-	// Default route serves index.html
+	// Public routes for login and main pages
+	router.GET("/login.html", func(c *gin.Context) {
+		c.File("./wwwroot/login.html")
+	})
 	router.GET("/", func(c *gin.Context) {
 		c.File("./wwwroot/index.html")
 	})
@@ -131,4 +171,5 @@ func (app *App) performCleanup() {
 
 	app.security.CleanupExpired()
 	app.rateLimiter.CleanupExpired()
+	app.authService.CleanupExpiredSessions()
 }

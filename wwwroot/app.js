@@ -80,7 +80,10 @@ class WebClipboard {
         try {
             const response = await fetch('/api/text', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': Auth.getAuthHeader()
+                },
                 body: JSON.stringify({ content })
             });
 
@@ -120,7 +123,11 @@ class WebClipboard {
         }
 
         try {
-            const response = await fetch(`/api/text/${id}`);
+            const response = await fetch(`/api/text/${id}`, {
+                headers: {
+                    'Authorization': Auth.getAuthHeader()
+                }
+            });
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('textContent').value = data.content;
@@ -153,7 +160,7 @@ class WebClipboard {
     async uploadFile() {
         const fileInput = document.getElementById('fileInput');
         const file = fileInput.files[0];
-        
+
         if (!file) {
             this.showMessage('Please select a file', 'error');
             return;
@@ -165,6 +172,9 @@ class WebClipboard {
         try {
             const response = await fetch('/api/file', {
                 method: 'POST',
+                headers: {
+                    'Authorization': Auth.getAuthHeader()
+                },
                 body: formData
             });
 
@@ -189,7 +199,11 @@ class WebClipboard {
         }
 
         try {
-            const response = await fetch(`/api/file/${id}`);
+            const response = await fetch(`/api/file/${id}`, {
+                headers: {
+                    'Authorization': Auth.getAuthHeader()
+                }
+            });
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);

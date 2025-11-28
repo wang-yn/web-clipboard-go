@@ -13,7 +13,10 @@
       "Bash(git config:*)",
       "Bash(git commit:*)",
       "Bash(docker build:*)",
-      "WebFetch(domain:favicon.io)"
+      "WebFetch(domain:favicon.io)",
+      "Bash(go mod tidy:*)",
+      "Bash(./web-clipboard-go.exe)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

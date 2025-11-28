@@ -64,3 +64,45 @@ func (app *App) rateLimitMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func (app *App) authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := extractToken(c)
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			c.Abort()
+			return
+		}
+
+		user, valid := app.authService.ValidateToken(token)
+		if !valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		// Store user in context for handlers to use
+		c.Set("user", user)
+		c.Next()
+	}
+}
+
+func (app *App) adminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+			c.Abort()
+			return
+		}
+
+		userObj := user.(*User)
+		if userObj.Role != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
