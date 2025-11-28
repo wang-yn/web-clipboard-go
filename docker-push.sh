@@ -13,13 +13,11 @@ ver=$1
 echo "Pushing version: $ver"
 
 # Tag images with the new version
-docker tag web-clipboard-go:minimal "yiwayhb/web-clipboard-go:$ver"
-docker tag web-clipboard-go:minimal yiwayhb/web-clipboard-go:minimal
-docker tag web-clipboard-go:minimal yiwayhb/web-clipboard-go:latest
+docker tag web-clipboard-go:latest "yiwayhb/web-clipboard-go:$ver"
+docker tag web-clipboard-go:latest yiwayhb/web-clipboard-go:latest
 
 # Push images to the registry
 docker push "yiwayhb/web-clipboard-go:$ver"
-docker push yiwayhb/web-clipboard-go:minimal
 docker push yiwayhb/web-clipboard-go:latest
 
-echo "Push complete for version $ver, minimal, and latest."
+echo "Push complete for version $ver and latest."

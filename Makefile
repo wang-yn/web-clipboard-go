@@ -1,4 +1,4 @@
-.PHONY: build build-minimal docker-build docker-run docker-stop docker-logs clean help run test
+.PHONY: build docker-build docker-run docker-stop docker-logs clean help run test
 
 IMAGE_NAME := web-clipboard-go
 TAG := latest
@@ -10,7 +10,7 @@ help:
 	@echo "  build         - Build Go application"
 	@echo "  run           - Run the application"
 	@echo "  test          - Run tests"
-	@echo "  docker-build  - Build Docker images"
+	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-run    - Run container"
 	@echo "  docker-stop   - Stop and remove container"
 	@echo "  docker-logs   - Show container logs"
@@ -35,17 +35,11 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
-# Build Docker images
+# Build Docker image
 docker-build:
-	@echo "Building Docker images..."
+	@echo "Building Docker image..."
 	docker build -t $(IMAGE_NAME):$(TAG) -f Dockerfile .
-	docker build -t $(IMAGE_NAME):minimal -f Dockerfile.minimal .
 	@echo "Build completed!"
-
-# Build minimal image only
-build-minimal:
-	@echo "Building minimal Docker image..."
-	docker build -t $(IMAGE_NAME):minimal -f Dockerfile.minimal .
 
 # Run Docker container
 docker-run:
@@ -90,7 +84,6 @@ clean:
 	-docker stop $(IMAGE_NAME) 2>/dev/null || true
 	-docker rm $(IMAGE_NAME) 2>/dev/null || true
 	-docker rmi $(IMAGE_NAME):$(TAG) 2>/dev/null || true
-	-docker rmi $(IMAGE_NAME):minimal 2>/dev/null || true
 	docker system prune -f
 	@echo "Cleaning up build artifacts..."
 	-rm -rf bin/

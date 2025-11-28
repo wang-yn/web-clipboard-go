@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o web-clipboard-go .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o web-clipboard-go ./cmd/web-clipboard
 
 # Final stage - minimal image
 FROM alpine:latest
@@ -35,7 +35,7 @@ WORKDIR /app
 COPY --from=builder /app/web-clipboard-go .
 
 # Copy static files
-COPY --from=builder /app/wwwroot ./wwwroot
+COPY --from=builder /app/web ./web
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

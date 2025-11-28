@@ -20,7 +20,9 @@
       "Bash(find:*)",
       "Bash(./bin/web-clipboard-go.exe:*)",
       "Bash(tree:*)",
-      "Bash(make build:*)"
+      "Bash(make build:*)",
+      "Bash(build.bat)",
+      "Bash(cmd.exe /c build.bat)"
     ],
     "deny": []
   }
