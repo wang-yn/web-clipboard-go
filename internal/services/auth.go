@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"crypto/rand"
@@ -6,23 +6,25 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"web-clipboard-go/internal/models"
 )
 
 type AuthService struct {
-	sessions    map[string]*Session // key: token
+	sessions    map[string]*models.Session // key: token
 	userManager *UserManager
 	mutex       sync.RWMutex
 }
 
 func NewAuthService(userManager *UserManager) *AuthService {
 	return &AuthService{
-		sessions:    make(map[string]*Session),
+		sessions:    make(map[string]*models.Session),
 		userManager: userManager,
 	}
 }
 
 // CreateSession creates a new session for a user
-func (as *AuthService) CreateSession(userID string, rememberMe bool) (*Session, error) {
+func (as *AuthService) CreateSession(userID string, rememberMe bool) (*models.Session, error) {
 	token, err := generateToken()
 	if err != nil {
 		return nil, err
@@ -36,7 +38,7 @@ func (as *AuthService) CreateSession(userID string, rememberMe bool) (*Session, 
 		expiresAt = time.Now().UTC().Add(2 * time.Hour) // 2 hours
 	}
 
-	session := &Session{
+	session := &models.Session{
 		Token:      token,
 		UserID:     userID,
 		ExpiresAt:  expiresAt,
@@ -51,7 +53,7 @@ func (as *AuthService) CreateSession(userID string, rememberMe bool) (*Session, 
 }
 
 // ValidateToken validates a token and returns whether it's valid
-func (as *AuthService) ValidateToken(token string) (*User, bool) {
+func (as *AuthService) ValidateToken(token string) (*models.User, bool) {
 	as.mutex.RLock()
 	session, exists := as.sessions[token]
 	as.mutex.RUnlock()
@@ -77,7 +79,7 @@ func (as *AuthService) ValidateToken(token string) (*User, bool) {
 }
 
 // GetUserByToken gets a user by token
-func (as *AuthService) GetUserByToken(token string) (*User, error) {
+func (as *AuthService) GetUserByToken(token string) (*models.User, error) {
 	user, valid := as.ValidateToken(token)
 	if !valid {
 		return nil, errors.New("invalid or expired token")

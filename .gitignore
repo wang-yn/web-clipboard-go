@@ -64,6 +64,10 @@ nginx_logs/
 dist/
 build/
 out/
+bin/
+
+# Data directory (contains user data)
+data/
 
 # Deployment files (if contains sensitive info)
 # docker-compose.override.yml

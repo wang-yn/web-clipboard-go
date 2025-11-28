@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"fmt"
@@ -9,20 +9,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"web-clipboard-go/internal/models"
 )
 
 type SecurityService struct {
-	failedAttempts     map[string]*FailedAttemptInfo
+	failedAttempts     map[string]*models.FailedAttemptInfo
 	blockedIPs         map[string]bool
 	mutex              sync.RWMutex
 	blockedExtensions  map[string]bool
 	suspiciousPatterns []string
-}
-
-type FailedAttemptInfo struct {
-	Count       int
-	LastAttempt time.Time
-	Reason      string
 }
 
 func NewSecurityService() *SecurityService {
@@ -39,15 +34,15 @@ func NewSecurityService() *SecurityService {
 	}
 
 	return &SecurityService{
-		failedAttempts:     make(map[string]*FailedAttemptInfo),
+		failedAttempts:     make(map[string]*models.FailedAttemptInfo),
 		blockedIPs:         make(map[string]bool),
 		blockedExtensions:  blockedExts,
 		suspiciousPatterns: suspiciousPatterns,
 	}
 }
 
-func (s *SecurityService) ValidateContentRequest(c *gin.Context, content string) bool {
-	ip := s.getClientIP(c)
+func (s *SecurityService) ValidateContentRequest(c interface{}, content string) bool {
+	ip := s.GetClientIP(c)
 
 	s.mutex.RLock()
 	if s.blockedIPs[ip] {
@@ -72,8 +67,8 @@ func (s *SecurityService) ValidateContentRequest(c *gin.Context, content string)
 	return true
 }
 
-func (s *SecurityService) ValidateFileRequest(c *gin.Context) bool {
-	ip := s.getClientIP(c)
+func (s *SecurityService) ValidateFileRequest(c interface{}) bool {
+	ip := s.GetClientIP(c)
 
 	s.mutex.RLock()
 	blocked := s.blockedIPs[ip]
@@ -91,8 +86,8 @@ func (s *SecurityService) ValidateFileType(fileName string) bool {
 	return !s.blockedExtensions[ext]
 }
 
-func (s *SecurityService) ValidateAccessRequest(c *gin.Context) bool {
-	ip := s.getClientIP(c)
+func (s *SecurityService) ValidateAccessRequest(c interface{}) bool {
+	ip := s.GetClientIP(c)
 
 	s.mutex.RLock()
 	if s.blockedIPs[ip] {
@@ -113,8 +108,8 @@ func (s *SecurityService) ValidateAccessRequest(c *gin.Context) bool {
 	return true
 }
 
-func (s *SecurityService) LogAccess(c *gin.Context, id, itemType string, success bool) {
-	ip := s.getClientIP(c)
+func (s *SecurityService) LogAccess(c interface{}, id, itemType string, success bool) {
+	ip := s.GetClientIP(c)
 	timestamp := time.Now().UTC()
 
 	status := "SUCCESS"
@@ -126,19 +121,24 @@ func (s *SecurityService) LogAccess(c *gin.Context, id, itemType string, success
 	log.Printf("[%s] %s accessed %s %s: %s", timestamp.Format(time.RFC3339), ip, itemType, id, status)
 }
 
-func (s *SecurityService) getClientIP(c *gin.Context) string {
-	xForwardedFor := c.GetHeader("X-Forwarded-For")
+func (s *SecurityService) GetClientIP(c interface{}) string {
+	ctx, ok := c.(*gin.Context)
+	if !ok {
+		return ""
+	}
+
+	xForwardedFor := ctx.GetHeader("X-Forwarded-For")
 	if xForwardedFor != "" {
 		ips := strings.Split(xForwardedFor, ",")
 		return strings.TrimSpace(ips[0])
 	}
 
-	xRealIP := c.GetHeader("X-Real-IP")
+	xRealIP := ctx.GetHeader("X-Real-IP")
 	if xRealIP != "" {
 		return xRealIP
 	}
 
-	return c.ClientIP()
+	return ctx.ClientIP()
 }
 
 func (s *SecurityService) recordFailedAttempt(ip, reason string) {
@@ -150,7 +150,7 @@ func (s *SecurityService) recordFailedAttempt(ip, reason string) {
 		info.LastAttempt = time.Now().UTC()
 		info.Reason = reason
 	} else {
-		s.failedAttempts[ip] = &FailedAttemptInfo{
+		s.failedAttempts[ip] = &models.FailedAttemptInfo{
 			Count:       1,
 			LastAttempt: time.Now().UTC(),
 			Reason:      reason,
@@ -177,18 +177,13 @@ func (s *SecurityService) CleanupExpired() {
 }
 
 type RateLimitService struct {
-	ipLimits map[string]*RateLimitInfo
+	ipLimits map[string]*models.RateLimitInfo
 	mutex    sync.RWMutex
-}
-
-type RateLimitInfo struct {
-	Count       int
-	WindowStart time.Time
 }
 
 func NewRateLimitService() *RateLimitService {
 	return &RateLimitService{
-		ipLimits: make(map[string]*RateLimitInfo),
+		ipLimits: make(map[string]*models.RateLimitInfo),
 	}
 }
 
@@ -207,7 +202,7 @@ func (r *RateLimitService) IsAllowed(ipAddress, endpoint string) bool {
 			info.Count++
 		}
 	} else {
-		r.ipLimits[key] = &RateLimitInfo{
+		r.ipLimits[key] = &models.RateLimitInfo{
 			Count:       1,
 			WindowStart: now,
 		}

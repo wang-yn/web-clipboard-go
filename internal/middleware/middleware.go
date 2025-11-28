@@ -1,12 +1,14 @@
-package main
+package middleware
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"web-clipboard-go/internal/models"
 )
 
-func (app *App) corsMiddleware() gin.HandlerFunc {
+// CorsMiddleware handles CORS for the application
+func CorsMiddleware(app *models.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		allowedOrigins := []string{
 			"http://localhost:5000",
@@ -38,7 +40,8 @@ func (app *App) corsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (app *App) securityHeadersMiddleware() gin.HandlerFunc {
+// SecurityHeadersMiddleware adds security headers to responses
+func SecurityHeadersMiddleware(app *models.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
@@ -49,13 +52,13 @@ func (app *App) securityHeadersMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (app *App) rateLimitMiddleware() gin.HandlerFunc {
+// RateLimitMiddleware applies rate limiting to requests
+func RateLimitMiddleware(app *models.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		ip := app.security.getClientIP(c)
+		ip := getClientIP(c)
 		endpoint := c.Request.Method
 
-		if !app.rateLimiter.IsAllowed(ip, endpoint) {
+		if !app.RateLimiter.IsAllowed(ip, endpoint) {
 			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded. Please slow down."})
 			c.Abort()
 			return
@@ -65,7 +68,8 @@ func (app *App) rateLimitMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (app *App) authMiddleware() gin.HandlerFunc {
+// AuthMiddleware validates user authentication
+func AuthMiddleware(app *models.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := extractToken(c)
 		if token == "" {
@@ -74,7 +78,7 @@ func (app *App) authMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		user, valid := app.authService.ValidateToken(token)
+		user, valid := app.AuthService.ValidateToken(token)
 		if !valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
@@ -87,7 +91,8 @@ func (app *App) authMiddleware() gin.HandlerFunc {
 	}
 }
 
-func (app *App) adminMiddleware() gin.HandlerFunc {
+// AdminMiddleware ensures the user has admin privileges
+func AdminMiddleware(app *models.App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, exists := c.Get("user")
 		if !exists {
@@ -96,7 +101,7 @@ func (app *App) adminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		userObj := user.(*User)
+		userObj := user.(*models.User)
 		if userObj.Role != "admin" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 			c.Abort()
@@ -105,4 +110,44 @@ func (app *App) adminMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// extractToken extracts the token from the Authorization header or query parameter
+func extractToken(c *gin.Context) string {
+	// Try Authorization header first (Bearer token)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		// Format: "Bearer <token>"
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			return authHeader[7:]
+		}
+		// Also support just the token without "Bearer " prefix
+		return authHeader
+	}
+
+	// Try query parameter as fallback
+	token := c.Query("token")
+	if token != "" {
+		return token
+	}
+
+	return ""
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(c *gin.Context) string {
+	// Check X-Forwarded-For header first
+	forwarded := c.GetHeader("X-Forwarded-For")
+	if forwarded != "" {
+		return forwarded
+	}
+
+	// Check X-Real-IP header
+	realIP := c.GetHeader("X-Real-IP")
+	if realIP != "" {
+		return realIP
+	}
+
+	// Fall back to RemoteAddr
+	return c.ClientIP()
 }

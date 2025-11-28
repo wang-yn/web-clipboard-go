@@ -1,4 +1,4 @@
-.PHONY: build build-minimal docker-build docker-run docker-stop docker-logs clean help
+.PHONY: build build-minimal docker-build docker-run docker-stop docker-logs clean help run test
 
 IMAGE_NAME := web-clipboard-go
 TAG := latest
@@ -8,6 +8,8 @@ PORT := 5000
 help:
 	@echo "Available targets:"
 	@echo "  build         - Build Go application"
+	@echo "  run           - Run the application"
+	@echo "  test          - Run tests"
 	@echo "  docker-build  - Build Docker images"
 	@echo "  docker-run    - Run container"
 	@echo "  docker-stop   - Stop and remove container"
@@ -15,12 +17,23 @@ help:
 	@echo "  compose-up    - Start with docker-compose"
 	@echo "  compose-down  - Stop docker-compose services"
 	@echo "  compose-nginx - Start with nginx proxy"
-	@echo "  clean         - Clean up Docker resources"
+	@echo "  clean         - Clean up Docker resources and build artifacts"
 
 # Build Go application
 build:
 	@echo "Building Go application..."
-	go build -o web-clipboard-go.exe
+	go build -o bin/web-clipboard-go.exe ./cmd/web-clipboard
+	@echo "Build completed! Binary: bin/web-clipboard-go.exe"
+
+# Run the application
+run: build
+	@echo "Running application..."
+	./bin/web-clipboard-go.exe
+
+# Run tests
+test:
+	@echo "Running tests..."
+	go test -v ./...
 
 # Build Docker images
 docker-build:
@@ -69,7 +82,7 @@ compose-nginx:
 	docker-compose -f docker-compose.nginx.yml up -d
 	@echo "Services started at http://localhost:8080"
 
-# Clean up Docker resources
+# Clean up Docker resources and build artifacts
 clean:
 	@echo "Cleaning up Docker resources..."
 	-docker-compose down
@@ -79,3 +92,6 @@ clean:
 	-docker rmi $(IMAGE_NAME):$(TAG) 2>/dev/null || true
 	-docker rmi $(IMAGE_NAME):minimal 2>/dev/null || true
 	docker system prune -f
+	@echo "Cleaning up build artifacts..."
+	-rm -rf bin/
+	@echo "Cleanup completed!"

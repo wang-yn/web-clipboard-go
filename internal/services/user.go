@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"encoding/json"
@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"web-clipboard-go/internal/models"
+	"web-clipboard-go/internal/utils"
 )
 
 type UserManager struct {
-	users    map[string]*User // key: user ID
+	users    map[string]*models.User // key: user ID
 	filePath string
 	mutex    sync.RWMutex
 }
@@ -26,7 +28,7 @@ func NewUserManager(dataDir string) (*UserManager, error) {
 	}
 
 	um := &UserManager{
-		users:    make(map[string]*User),
+		users:    make(map[string]*models.User),
 		filePath: filepath.Join(dataDir, "users.json"),
 	}
 
@@ -56,7 +58,7 @@ func (um *UserManager) loadUsers() error {
 		return fmt.Errorf("failed to read users file: %w", err)
 	}
 
-	var usersData UsersData
+	var usersData models.UsersData
 	if err := json.Unmarshal(data, &usersData); err != nil {
 		return fmt.Errorf("failed to parse users file: %w", err)
 	}
@@ -75,13 +77,13 @@ func (um *UserManager) loadUsers() error {
 // saveUsers saves users to JSON file
 func (um *UserManager) saveUsers() error {
 	um.mutex.RLock()
-	usersList := make([]User, 0, len(um.users))
+	usersList := make([]models.User, 0, len(um.users))
 	for _, user := range um.users {
 		usersList = append(usersList, *user)
 	}
 	um.mutex.RUnlock()
 
-	usersData := UsersData{Users: usersList}
+	usersData := models.UsersData{Users: usersList}
 	data, err := json.MarshalIndent(usersData, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal users: %w", err)
@@ -101,8 +103,8 @@ func (um *UserManager) createDefaultAdmin() error {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	admin := &User{
-		ID:        generateUUID(),
+	admin := &models.User{
+		ID:        utils.GenerateUUID(),
 		Username:  "admin",
 		Password:  string(hashedPassword),
 		Email:     "admin@localhost",
@@ -131,7 +133,7 @@ func (um *UserManager) createDefaultAdmin() error {
 }
 
 // CreateUser creates a new user
-func (um *UserManager) CreateUser(username, password, email, role string) (*User, error) {
+func (um *UserManager) CreateUser(username, password, email, role string) (*models.User, error) {
 	// Validate inputs
 	username = strings.TrimSpace(username)
 	if username == "" {
@@ -167,8 +169,8 @@ func (um *UserManager) CreateUser(username, password, email, role string) (*User
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	user := &User{
-		ID:        generateUUID(),
+	user := &models.User{
+		ID:        utils.GenerateUUID(),
 		Username:  username,
 		Password:  string(hashedPassword),
 		Email:     email,
@@ -194,14 +196,14 @@ func (um *UserManager) CreateUser(username, password, email, role string) (*User
 }
 
 // GetUser gets a user by ID
-func (um *UserManager) GetUser(id string) *User {
+func (um *UserManager) GetUser(id string) *models.User {
 	um.mutex.RLock()
 	defer um.mutex.RUnlock()
 	return um.users[id]
 }
 
 // GetUserByUsername gets a user by username
-func (um *UserManager) GetUserByUsername(username string) *User {
+func (um *UserManager) GetUserByUsername(username string) *models.User {
 	um.mutex.RLock()
 	defer um.mutex.RUnlock()
 
@@ -215,11 +217,11 @@ func (um *UserManager) GetUserByUsername(username string) *User {
 }
 
 // GetAllUsers returns all users
-func (um *UserManager) GetAllUsers() []User {
+func (um *UserManager) GetAllUsers() []models.User {
 	um.mutex.RLock()
 	defer um.mutex.RUnlock()
 
-	users := make([]User, 0, len(um.users))
+	users := make([]models.User, 0, len(um.users))
 	for _, user := range um.users {
 		users = append(users, *user)
 	}
@@ -227,7 +229,7 @@ func (um *UserManager) GetAllUsers() []User {
 }
 
 // UpdateUser updates a user's information
-func (um *UserManager) UpdateUser(id string, email, role string, isActive *bool) (*User, error) {
+func (um *UserManager) UpdateUser(id string, email, role string, isActive *bool) (*models.User, error) {
 	um.mutex.Lock()
 	user, exists := um.users[id]
 	if !exists {
@@ -316,7 +318,7 @@ func (um *UserManager) DeleteUser(id string) error {
 }
 
 // ValidateCredentials validates username and password
-func (um *UserManager) ValidateCredentials(username, password string) (*User, error) {
+func (um *UserManager) ValidateCredentials(username, password string) (*models.User, error) {
 	user := um.GetUserByUsername(username)
 	if user == nil {
 		return nil, errors.New("invalid username or password")
@@ -331,17 +333,4 @@ func (um *UserManager) ValidateCredentials(username, password string) (*User, er
 	}
 
 	return user, nil
-}
-
-// ToUserResponse converts User to UserResponse (without password)
-func ToUserResponse(user *User) UserResponse {
-	return UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      user.Role,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		IsActive:  user.IsActive,
-	}
 }

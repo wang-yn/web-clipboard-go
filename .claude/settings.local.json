@@ -16,7 +16,11 @@
       "WebFetch(domain:favicon.io)",
       "Bash(go mod tidy:*)",
       "Bash(./web-clipboard-go.exe)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(./bin/web-clipboard-go.exe:*)",
+      "Bash(tree:*)",
+      "Bash(make build:*)"
     ],
     "deny": []
   }

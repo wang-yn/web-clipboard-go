@@ -1,26 +1,22 @@
-package main
+package utils
 
 import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
 const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-func (app *App) generateShortID() string {
-	app.dataMutex.RLock()
-	defer app.dataMutex.RUnlock()
-
+// GenerateShortID generates a random short ID for clipboard items
+func GenerateShortID(existingIDs map[string]bool) string {
 	for attempt := 0; attempt < 100; attempt++ {
 		id, err := generateRandomString(4)
 		if err != nil {
-			continue // Or handle error appropriately
+			continue
 		}
-		if _, exists := app.clipboardData[id]; !exists {
+		if !existingIDs[id] {
 			return id
 		}
 	}
@@ -29,6 +25,7 @@ func (app *App) generateShortID() string {
 	return id
 }
 
+// GenerateRandomString generates a random alphanumeric string of the given length
 func generateRandomString(length int) (string, error) {
 	var sb strings.Builder
 	sb.Grow(length)
@@ -42,26 +39,8 @@ func generateRandomString(length int) (string, error) {
 	return sb.String(), nil
 }
 
-func getTempDir() string {
-	return filepath.Join(os.TempDir(), "web-clipboard-go")
-}
-
-func (app *App) initTempDir() {
-	err := os.MkdirAll(app.tempDir, 0755)
-	if err != nil {
-		panic("Failed to create temp directory: " + err.Error())
-	}
-
-	files, err := filepath.Glob(filepath.Join(app.tempDir, "*"))
-	if err == nil {
-		for _, file := range files {
-			os.Remove(file)
-		}
-	}
-}
-
-// generateUUID generates a simple UUID-like string
-func generateUUID() string {
+// GenerateUUID generates a simple UUID-like string
+func GenerateUUID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return fmt.Sprintf("%x-%x-%x-%x-%x",
