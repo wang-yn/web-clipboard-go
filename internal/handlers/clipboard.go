@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,8 +161,39 @@ func (h *Handler) GetFile(c *gin.Context) {
 	}
 
 	h.App.Security.LogAccess(c, id, "file", true)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", item.FileName))
+	c.Header("Content-Disposition", contentDispositionHeader(item.FileName))
 	c.File(item.FilePath)
+}
+
+func contentDispositionHeader(fileName string) string {
+	return fmt.Sprintf(
+		"attachment; filename=\"%s\"; filename*=UTF-8''%s",
+		asciiFallbackFileName(fileName),
+		url.PathEscape(fileName),
+	)
+}
+
+func asciiFallbackFileName(fileName string) string {
+	ext := filepath.Ext(fileName)
+	if !isSafeASCIIFileName(fileName) {
+		if isSafeASCIIFileName(ext) {
+			return "download" + ext
+		}
+		return "download"
+	}
+	return fileName
+}
+
+func isSafeASCIIFileName(fileName string) bool {
+	if fileName == "" {
+		return false
+	}
+	for _, r := range fileName {
+		if r < 0x20 || r > 0x7e || r == '"' || r == '\\' || r == ';' {
+			return false
+		}
+	}
+	return true
 }
 
 // DeleteItem handles deleting a clipboard item

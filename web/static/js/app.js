@@ -32,7 +32,6 @@ class WebClipboard {
         // Text operations
         document.getElementById('saveText').addEventListener('click', () => this.saveText());
         document.getElementById('copyText').addEventListener('click', () => this.copyTextToClipboard());
-        document.getElementById('loadText').addEventListener('click', () => this.loadText());
 
         // File operations
         document.getElementById('selectFile').addEventListener('click', () => {
@@ -40,7 +39,6 @@ class WebClipboard {
         });
         document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
         document.getElementById('uploadFile').addEventListener('click', () => this.uploadFile());
-        document.getElementById('downloadFile').addEventListener('click', () => this.downloadFile());
 
         // Drag and drop for files
         const fileArea = document.getElementById('selectFile');
@@ -59,14 +57,6 @@ class WebClipboard {
                 document.getElementById('fileInput').files = files;
                 this.handleFileSelect({ target: { files } });
             }
-        });
-
-        // Enter key handlers
-        document.getElementById('textId').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.loadText();
-        });
-        document.getElementById('fileId').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.downloadFile();
         });
     }
 
@@ -89,9 +79,8 @@ class WebClipboard {
 
             if (response.ok) {
                 const data = await response.json();
-                this.showMessage(i18n.t('text-saved', data.id), 'success');
+                this.showMessage(i18n.t('text-saved'), 'success');
                 this.addToRecent('text', data.id, content.substring(0, 50) + '...', data.expiresAt);
-                document.getElementById('textId').value = data.id;
             } else {
                 throw new Error(i18n.t('failed-save-text'));
             }
@@ -115,13 +104,7 @@ class WebClipboard {
         }
     }
 
-    async loadText() {
-        const id = document.getElementById('textId').value.trim();
-        if (!id) {
-            this.showMessage('Please enter a text ID', 'error');
-            return;
-        }
-
+    async loadText(id) {
         try {
             const response = await fetch(`/api/text/${id}`, {
                 headers: {
@@ -131,14 +114,14 @@ class WebClipboard {
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('textContent').value = data.content;
-                this.showMessage('Text loaded successfully!', 'success');
+                this.showMessage(i18n.t('text-loaded'), 'success');
             } else if (response.status === 404) {
-                this.showMessage('Text not found or expired', 'error');
+                this.showMessage(i18n.t('text-not-found'), 'error');
             } else {
-                throw new Error('Failed to load text');
+                throw new Error(i18n.t('failed-load-text'));
             }
         } catch (error) {
-            this.showMessage('Error loading text: ' + error.message, 'error');
+            this.showMessage(i18n.t('error-loading-text', error.message), 'error');
         }
     }
 
@@ -180,9 +163,8 @@ class WebClipboard {
 
             if (response.ok) {
                 const data = await response.json();
-                this.showMessage(`File uploaded! ID: ${data.id}`, 'success');
+                this.showMessage(i18n.t('file-uploaded'), 'success');
                 this.addToRecent('file', data.id, data.fileName, data.expiresAt);
-                document.getElementById('fileId').value = data.id;
             } else {
                 throw new Error('Failed to upload file');
             }
@@ -191,13 +173,7 @@ class WebClipboard {
         }
     }
 
-    async downloadFile() {
-        const id = document.getElementById('fileId').value.trim();
-        if (!id) {
-            this.showMessage(i18n.t('please-enter-file-id'), 'error');
-            return;
-        }
-
+    async downloadFile(id) {
         try {
             const response = await fetch(`/api/file/${id}`, {
                 headers: {
@@ -209,14 +185,7 @@ class WebClipboard {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 
-                const contentDisposition = response.headers.get('content-disposition');
-                let filename = 'download';
-                if (contentDisposition) {
-                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                    if (filenameMatch) {
-                        filename = filenameMatch[1].replace(/['"]/g, '');
-                    }
-                }
+                const filename = this.getDownloadFilename(response.headers.get('content-disposition'));
 
                 a.href = url;
                 a.download = filename;
@@ -274,42 +243,69 @@ class WebClipboard {
                         <span class="font-medium text-sm truncate">${item.description}</span>
                     </div>
                     <div class="text-xs text-gray-500 mt-1">
-                        ID: ${item.id} • ${i18n.t('created', new Date(item.createdAt).toLocaleString())}
+                        ${i18n.t('created', new Date(item.createdAt).toLocaleString())}
                     </div>
                 </div>
                 <div class="flex gap-1 ml-2">
-                    <button onclick="app.copyId('${item.id}')" 
-                            class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded text-xs"
-                            title="Copy ID">
-                        📋
-                    </button>
                     <button onclick="app.loadItem('${item.type}', '${item.id}')" 
                             class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-600 rounded text-xs"
-                            title="Load">
-                        📥
+                            title="${item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file')}">
+                        ${item.type === 'text' ? '📋' : '📥'}
                     </button>
                 </div>
             </div>
         `).join('');
     }
 
-    async copyId(id) {
-        try {
-            await navigator.clipboard.writeText(id);
-            this.showMessage(i18n.t('id-copied'), 'success');
-        } catch (error) {
-            this.showMessage(i18n.t('failed-copy-id'), 'error');
+    async loadItem(type, id) {
+        if (type === 'text') {
+            await this.copyTextItem(id);
+        } else {
+            await this.downloadFile(id);
         }
     }
 
-    async loadItem(type, id) {
-        if (type === 'text') {
-            document.getElementById('textId').value = id;
-            await this.loadText();
-        } else {
-            document.getElementById('fileId').value = id;
-            await this.downloadFile();
+    async copyTextItem(id) {
+        try {
+            const response = await fetch(`/api/text/${id}`, {
+                headers: {
+                    'Authorization': Auth.getAuthHeader()
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                await navigator.clipboard.writeText(data.content);
+                this.showMessage(i18n.t('text-copied'), 'success');
+            } else if (response.status === 404) {
+                this.showMessage(i18n.t('text-not-found'), 'error');
+            } else {
+                throw new Error(i18n.t('failed-load-text'));
+            }
+        } catch (error) {
+            this.showMessage(i18n.t('failed-copy-text'), 'error');
         }
+    }
+
+    getDownloadFilename(contentDisposition) {
+        if (!contentDisposition) {
+            return 'download';
+        }
+
+        const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (encodedMatch) {
+            try {
+                return decodeURIComponent(encodedMatch[1]);
+            } catch (error) {
+                return 'download';
+            }
+        }
+
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch) {
+            return filenameMatch[1].replace(/['"]/g, '');
+        }
+
+        return 'download';
     }
 
     showMessage(message, type) {
