@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { LogIn } from 'lucide-react';
 import { Auth } from './auth.js';
 import { i18n } from './i18n.js';
 import './styles.css';
 
 const e = React.createElement;
+
+function IconLabel({ icon: Icon, label }) {
+    return e('span', { className: 'inline-flex items-center justify-center gap-2' },
+        e(Icon, { size: 16, 'aria-hidden': true }),
+        e('span', null, label)
+    );
+}
 
 export function LoginApp() {
     const [username, setUsername] = useState('');
@@ -78,8 +86,8 @@ export function LoginApp() {
                 e('button', {
                     type: 'submit',
                     disabled: loading,
-                    className: 'w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-3 px-4 rounded-lg font-medium transition-colors'
-                }, loading ? i18n.t('login-loading') : i18n.t('login'))
+                    className: 'w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-3 px-4 rounded-lg font-medium transition-colors inline-flex items-center justify-center gap-2'
+                }, e(IconLabel, { icon: LogIn, label: loading ? i18n.t('login-loading') : i18n.t('login') }))
             ),
             message && e('div', {
                 className: `mt-4 p-3 rounded-lg text-sm ${message.type === 'success'

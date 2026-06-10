@@ -23,6 +23,7 @@ go.work
 # IDE files
 .vscode/
 .idea/
+.playwright-cli/
 *.swp
 *.swo
 *~

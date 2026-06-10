@@ -118,6 +118,62 @@ func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
 	}
 }
 
+func TestFrontendUsesIconsAndToastFeedback(t *testing.T) {
+	app := readFrontendFile(t, "frontend/src/App.jsx")
+	loginApp := readFrontendFile(t, "frontend/src/LoginApp.jsx")
+	packageJSON := readFrontendFile(t, "frontend/package.json")
+
+	if !strings.Contains(packageJSON, `"lucide-react"`) {
+		t.Fatal("frontend package.json must include a pnpm-managed icon library")
+	}
+	for _, required := range []string{
+		"import {",
+		"Copy,",
+		"Download,",
+		"FileIcon,",
+		"FileText,",
+		"FolderOpen,",
+		"LogOut,",
+		"Save,",
+		"Upload,",
+		"} from 'lucide-react';",
+		"function IconLabel(",
+		"function RecentTypeIcon(",
+		"aria-label': type === 'text' ? 'Text item' : 'File item'",
+		"type === 'text' ? FileText : FileIcon",
+		"e(RecentTypeIcon, { type: item.type })",
+		"sr-only",
+	} {
+		if !strings.Contains(app, required) {
+			t.Fatalf("icon UI contract missing: %s", required)
+		}
+	}
+	if strings.Contains(app, "item.type === 'text' ? 'Text' : 'File'") {
+		t.Fatal("recent item type is still rendered as visible Text/File copy instead of an icon")
+	}
+	for _, required := range []string{
+		"function StatusMessage({ message })",
+		"fixed top-4 right-4",
+		"role: 'status'",
+		"'aria-live': 'polite'",
+		"showMessage(i18n.t('text-copied'))",
+	} {
+		if !strings.Contains(app, required) {
+			t.Fatalf("copy success toast contract missing: %s", required)
+		}
+	}
+	for _, required := range []string{
+		"import { LogIn } from 'lucide-react';",
+		"function IconLabel(",
+		"icon: LogIn",
+		"inline-flex items-center justify-center gap-2",
+	} {
+		if !strings.Contains(loginApp, required) {
+			t.Fatalf("login icon UI contract missing: %s", required)
+		}
+	}
+}
+
 func TestReactFilePickerKeepsDragAndDrop(t *testing.T) {
 	js := readFrontendFile(t, "frontend/src/App.jsx")
 
