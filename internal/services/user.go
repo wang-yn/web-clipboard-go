@@ -237,19 +237,46 @@ func (um *UserManager) UpdateUser(id string, email, role string, isActive *bool)
 		return nil, errors.New("user not found")
 	}
 
-	// Update fields if provided
-	if email != "" {
-		user.Email = strings.TrimSpace(email)
-	}
+	nextRole := user.Role
 	if role != "" {
 		if role != "admin" && role != "user" {
 			um.mutex.Unlock()
 			return nil, errors.New("role must be 'admin' or 'user'")
 		}
-		user.Role = role
+		nextRole = role
+	}
+	nextIsActive := user.IsActive
+	if isActive != nil {
+		nextIsActive = *isActive
+	}
+	if user.Role == "admin" && user.IsActive && (nextRole != "admin" || !nextIsActive) {
+		activeAdmins := 0
+		for _, existingUser := range um.users {
+			if existingUser.ID == id {
+				if nextRole == "admin" && nextIsActive {
+					activeAdmins++
+				}
+				continue
+			}
+			if existingUser.Role == "admin" && existingUser.IsActive {
+				activeAdmins++
+			}
+		}
+		if activeAdmins == 0 {
+			um.mutex.Unlock()
+			return nil, errors.New("cannot remove the last active admin user")
+		}
+	}
+
+	// Update fields if provided
+	if email != "" {
+		user.Email = strings.TrimSpace(email)
+	}
+	if role != "" {
+		user.Role = nextRole
 	}
 	if isActive != nil {
-		user.IsActive = *isActive
+		user.IsActive = nextIsActive
 	}
 
 	user.UpdatedAt = time.Now().UTC()

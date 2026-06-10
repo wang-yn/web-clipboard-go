@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +21,8 @@ import (
 )
 
 func main() {
+	mime.AddExtensionType(".jsx", "application/javascript")
+
 	// Initialize user manager
 	userManager, err := services.NewUserManager("./data")
 	if err != nil {
@@ -99,6 +102,7 @@ func setupRouter(app *models.App) *gin.Engine {
 		api.POST("/file", handler.SaveFile)
 		api.GET("/file/:id", handler.GetFile)
 		api.DELETE("/:id", handler.DeleteItem)
+		api.PUT("/users/:id/password", handler.ChangeUserPassword)
 	}
 
 	// Admin-only endpoints
@@ -110,25 +114,13 @@ func setupRouter(app *models.App) *gin.Engine {
 		users.GET("/:id", handler.GetUser)
 		users.PUT("/:id", handler.UpdateUser)
 		users.DELETE("/:id", handler.DeleteUser)
-		users.PUT("/:id/password", handler.ChangeUserPassword)
 	}
 
 	// Admin-only cleanup endpoint
 	api.GET("/cleanup", middleware.AdminMiddleware(app), handler.Cleanup)
 
-	// Serve specific static files (public)
-	router.GET("/app.js", func(c *gin.Context) {
-		c.File("./web/static/js/app.js")
-	})
-	router.GET("/auth.js", func(c *gin.Context) {
-		c.File("./web/static/js/auth.js")
-	})
-	router.GET("/i18n.js", func(c *gin.Context) {
-		c.File("./web/static/js/i18n.js")
-	})
-	router.GET("/favicon.ico", func(c *gin.Context) {
-		c.File("./web/static/favicon.ico")
-	})
+	router.Static("/static", "./web/static")
+	router.StaticFile("/favicon.ico", "./web/static/favicon.ico")
 
 	// Public routes for login and main pages
 	router.GET("/login.html", func(c *gin.Context) {
