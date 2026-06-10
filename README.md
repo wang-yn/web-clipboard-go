@@ -126,35 +126,63 @@ The server will start on port 5000: http://localhost:5000
 
 ## Docker Support
 
-### Quick Start with Docker
+### Install with Docker
 
-Build and run with Docker:
+Pull the published GHCR image and run it locally:
+
 ```bash
-# Build Docker images
-./docker-build.bat  # Windows
-./docker-build.sh   # Linux/Mac
-
-# Run container
-docker run -p 5000:5000 web-clipboard-go:latest
+docker pull ghcr.io/wang-yn/web-clipboard-go:latest
+docker run -d \
+  --name web-clipboard-go \
+  --restart unless-stopped \
+  -p 5000:5000 \
+  -e GIN_MODE=release \
+  ghcr.io/wang-yn/web-clipboard-go:latest
 ```
 
-### Docker Compose
+Open http://localhost:5000 after the container starts.
 
-Start with docker-compose:
+For local image development, build from source instead:
+
 ```bash
-# Standard deployment
-docker-compose up -d
+make docker-build
+make docker-run
+```
 
-# With Nginx reverse proxy
-docker-compose -f docker-compose.nginx.yml up -d
+### Install with Docker Compose
 
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  web-clipboard-go:
+    image: ghcr.io/wang-yn/web-clipboard-go:latest
+    container_name: web-clipboard-go
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - GIN_MODE=release
+```
+
+Start the service:
+
+```bash
+docker compose up -d
+```
+
+Useful commands:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose logs -f
+docker compose down
 ```
 
 ### Available Docker Images
 
-- `web-clipboard-go:latest` - Alpine-based image with non-root user
+- `ghcr.io/wang-yn/web-clipboard-go:latest` - Alpine-based image with non-root user
 
 ### Makefile Commands
 
