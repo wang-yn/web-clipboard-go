@@ -1,8 +1,9 @@
-.PHONY: build docker-build docker-run docker-stop docker-logs clean help run test
+.PHONY: build docker-build docker-run docker-stop docker-logs clean help run test compose-up compose-down
 
 IMAGE_NAME := web-clipboard-go
 TAG := latest
 PORT := 5000
+GO_ENTRY := ./backend/cmd/web-clipboard
 
 # Default target
 help:
@@ -16,13 +17,12 @@ help:
 	@echo "  docker-logs   - Show container logs"
 	@echo "  compose-up    - Start with docker-compose"
 	@echo "  compose-down  - Stop docker-compose services"
-	@echo "  compose-nginx - Start with nginx proxy"
 	@echo "  clean         - Clean up Docker resources and build artifacts"
 
 # Build Go application
 build:
 	@echo "Building Go application..."
-	go build -o bin/web-clipboard-go.exe ./cmd/web-clipboard
+	go build -o bin/web-clipboard-go.exe $(GO_ENTRY)
 	@echo "Build completed! Binary: bin/web-clipboard-go.exe"
 
 # Run the application
@@ -70,17 +70,10 @@ compose-down:
 	@echo "Stopping docker-compose services..."
 	docker-compose down
 
-# Start with nginx proxy
-compose-nginx:
-	@echo "Starting with nginx proxy..."
-	docker-compose -f docker-compose.nginx.yml up -d
-	@echo "Services started at http://localhost:8080"
-
 # Clean up Docker resources and build artifacts
 clean:
 	@echo "Cleaning up Docker resources..."
 	-docker-compose down
-	-docker-compose -f docker-compose.nginx.yml down
 	-docker stop $(IMAGE_NAME) 2>/dev/null || true
 	-docker rm $(IMAGE_NAME) 2>/dev/null || true
 	-docker rmi $(IMAGE_NAME):$(TAG) 2>/dev/null || true

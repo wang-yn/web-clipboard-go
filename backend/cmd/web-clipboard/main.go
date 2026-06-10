@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"web-clipboard-go/internal/handlers"
-	"web-clipboard-go/internal/middleware"
-	"web-clipboard-go/internal/models"
-	"web-clipboard-go/internal/services"
+	"web-clipboard-go/backend/internal/handlers"
+	"web-clipboard-go/backend/internal/middleware"
+	"web-clipboard-go/backend/internal/models"
+	"web-clipboard-go/backend/internal/services"
 )
 
 func main() {
@@ -119,15 +119,15 @@ func setupRouter(app *models.App) *gin.Engine {
 	// Admin-only cleanup endpoint
 	api.GET("/cleanup", middleware.AdminMiddleware(app), handler.Cleanup)
 
-	router.Static("/static", "./web/static")
-	router.StaticFile("/favicon.ico", "./web/static/favicon.ico")
+	router.Static("/static", "./frontend/static")
+	router.StaticFile("/favicon.ico", "./frontend/static/favicon.ico")
 
 	// Public routes for login and main pages
 	router.GET("/login.html", func(c *gin.Context) {
-		c.File("./web/templates/login.html")
+		c.File("./frontend/templates/login.html")
 	})
 	router.GET("/", func(c *gin.Context) {
-		c.File("./web/templates/index.html")
+		c.File("./frontend/templates/index.html")
 	})
 
 	return router
