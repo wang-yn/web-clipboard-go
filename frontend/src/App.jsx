@@ -1,5 +1,9 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Auth } from './auth.js';
+import { i18n } from './i18n.js';
+import './styles.css';
+
 const e = React.createElement;
-const { useEffect, useMemo, useState } = React;
 
 function useMessage() {
     const [message, setMessage] = useState(null);
@@ -12,7 +16,7 @@ function useMessage() {
     return [message, showMessage];
 }
 
-function AppShell() {
+export function AppShell() {
     const [user, setUser] = useState(Auth.getCurrentUser());
     const [ready, setReady] = useState(false);
     const [language, setLanguage] = useState(i18n.getCurrentLanguage());
@@ -621,5 +625,3 @@ function getDownloadFilename(contentDisposition) {
     }
     return 'download';
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(e(AppShell));

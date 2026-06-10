@@ -1,4 +1,4 @@
-class Auth {
+export class Auth {
     static getToken() {
         return localStorage.getItem('authToken');
     }

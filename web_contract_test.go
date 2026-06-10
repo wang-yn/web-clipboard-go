@@ -16,14 +16,19 @@ func readFrontendFile(t *testing.T, path string) string {
 }
 
 func TestFrontendUsesReactComponentStructure(t *testing.T) {
-	index := readFrontendFile(t, "frontend/templates/index.html")
-	login := readFrontendFile(t, "frontend/templates/login.html")
-	app := readFrontendFile(t, "frontend/static/js/app.jsx")
+	index := readFrontendFile(t, "frontend/index.html")
+	login := readFrontendFile(t, "frontend/login.html")
+	app := readFrontendFile(t, "frontend/src/App.jsx")
 
 	for _, html := range []string{index, login} {
-		for _, required := range []string{`id="root"`, "/vendor/react.production.min.js", "/vendor/react-dom.production.min.js"} {
+		for _, required := range []string{`id="root"`, `type="module"`} {
 			if !strings.Contains(html, required) {
 				t.Fatalf("React page shell missing %s", required)
+			}
+		}
+		for _, forbidden := range []string{"cdn.tailwindcss.com", "/static/vendor/", "react.production.min.js", "react-dom.production.min.js"} {
+			if strings.Contains(html, forbidden) {
+				t.Fatalf("React page shell still directly loads external/vendor package: %s", forbidden)
 			}
 		}
 	}
@@ -36,9 +41,9 @@ func TestFrontendUsesReactComponentStructure(t *testing.T) {
 }
 
 func TestFrontendHidesManualClipboardIDs(t *testing.T) {
-	html := readFrontendFile(t, "frontend/templates/index.html")
-	js := readFrontendFile(t, "frontend/static/js/app.jsx")
-	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
+	html := readFrontendFile(t, "frontend/index.html")
+	js := readFrontendFile(t, "frontend/src/App.jsx")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
 
 	for _, forbidden := range []string{`id="textId"`, `id="fileId"`} {
 		if strings.Contains(html, forbidden) {
@@ -66,8 +71,8 @@ func TestFrontendHidesManualClipboardIDs(t *testing.T) {
 }
 
 func TestLoginDoesNotRestoreShareLinks(t *testing.T) {
-	auth := readFrontendFile(t, "frontend/static/js/auth.js")
-	login := readFrontendFile(t, "frontend/templates/login.html")
+	auth := readFrontendFile(t, "frontend/src/auth.js")
+	login := readFrontendFile(t, "frontend/login.html")
 
 	for _, forbidden := range []string{"redirect=", "window.location.hash", "encodeURIComponent", "getRedirectTarget", "URLSearchParams"} {
 		if strings.Contains(auth+login, forbidden) {
@@ -77,7 +82,7 @@ func TestLoginDoesNotRestoreShareLinks(t *testing.T) {
 }
 
 func TestAuthCheckRejectsNonOKCurrentUserResponses(t *testing.T) {
-	auth := readFrontendFile(t, "frontend/static/js/auth.js")
+	auth := readFrontendFile(t, "frontend/src/auth.js")
 
 	checkStart := strings.Index(auth, "static async checkAuth()")
 	checkEnd := strings.Index(auth, "static getAuthHeader()")
@@ -91,7 +96,7 @@ func TestAuthCheckRejectsNonOKCurrentUserResponses(t *testing.T) {
 }
 
 func TestFrontendDecodesRFC5987DownloadFilenames(t *testing.T) {
-	js := readFrontendFile(t, "frontend/static/js/app.jsx")
+	js := readFrontendFile(t, "frontend/src/App.jsx")
 	for _, required := range []string{"getDownloadFilename(", "filename\\*", "decodeURIComponent"} {
 		if !strings.Contains(js, required) {
 			t.Fatalf("frontend filename parser does not decode RFC 5987 filename*: missing %s", required)
@@ -100,8 +105,8 @@ func TestFrontendDecodesRFC5987DownloadFilenames(t *testing.T) {
 }
 
 func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
-	js := readFrontendFile(t, "frontend/static/js/app.jsx")
-	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
+	js := readFrontendFile(t, "frontend/src/App.jsx")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
 	for _, required := range []string{"copyTextItem(", "copyTextItem(id)", "downloadFile(id)", "item-action-copy-text", "item-action-download-file"} {
 		if !strings.Contains(js+translations, required) {
 			t.Fatalf("recent item action contract missing: %s", required)
@@ -114,7 +119,7 @@ func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
 }
 
 func TestReactFilePickerKeepsDragAndDrop(t *testing.T) {
-	js := readFrontendFile(t, "frontend/static/js/app.jsx")
+	js := readFrontendFile(t, "frontend/src/App.jsx")
 
 	for _, required := range []string{"onDragOver", "onDragLeave", "onDrop", "handleDroppedFile(", "setDragActive("} {
 		if !strings.Contains(js, required) {
@@ -124,9 +129,9 @@ func TestReactFilePickerKeepsDragAndDrop(t *testing.T) {
 }
 
 func TestFrontendProvidesPasswordAndUserManagement(t *testing.T) {
-	app := readFrontendFile(t, "frontend/static/js/app.jsx")
-	auth := readFrontendFile(t, "frontend/static/js/auth.js")
-	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
+	app := readFrontendFile(t, "frontend/src/App.jsx")
+	auth := readFrontendFile(t, "frontend/src/auth.js")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
 
 	for _, required := range []string{"changePassword(", "`/api/users/${userId}/password`", "newPassword", "function ChangePasswordModal("} {
 		if !strings.Contains(app+auth, required) {
@@ -163,8 +168,9 @@ func TestFrontendProvidesPasswordAndUserManagement(t *testing.T) {
 
 func TestGoRouterServesReactStaticAssets(t *testing.T) {
 	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
+	middleware := readFrontendFile(t, "backend/internal/middleware/middleware.go")
 
-	for _, required := range []string{`mime.AddExtensionType(".jsx", "application/javascript")`, `router.Static("/static", "./frontend/static")`, `router.StaticFile("/favicon.ico"`} {
+	for _, required := range []string{`router.Static("/assets", "./frontend/dist/assets")`, `router.StaticFile("/favicon.ico", "./frontend/dist/favicon.ico")`, `c.File("./frontend/dist/login.html")`, `c.File("./frontend/dist/index.html")`} {
 		if !strings.Contains(main, required) {
 			t.Fatalf("Go router static asset route missing: %s", required)
 		}
@@ -174,6 +180,39 @@ func TestGoRouterServesReactStaticAssets(t *testing.T) {
 		if strings.Contains(main, forbidden) {
 			t.Fatalf("legacy fixed script route still present: %s", forbidden)
 		}
+	}
+	if strings.Contains(middleware, "cdn.tailwindcss.com") {
+		t.Fatal("CSP still allows the old Tailwind CDN after moving styles into pnpm build")
+	}
+}
+
+func TestFrontendUsesPnpmManagedBuild(t *testing.T) {
+	packageJSON := readFrontendFile(t, "frontend/package.json")
+	viteConfig := readFrontendFile(t, "frontend/vite.config.js")
+	pnpmLock := readFrontendFile(t, "frontend/pnpm-lock.yaml")
+	pnpmWorkspace := readFrontendFile(t, "frontend/pnpm-workspace.yaml")
+	makefile := readFrontendFile(t, "Makefile")
+
+	for _, required := range []string{`"react"`, `"react-dom"`, `"vite"`, `"tailwindcss"`, `"build"`} {
+		if !strings.Contains(packageJSON, required) {
+			t.Fatalf("frontend package.json missing pnpm-managed dependency or script: %s", required)
+		}
+	}
+	for _, required := range []string{"index.html", "login.html", "manifest: true"} {
+		if !strings.Contains(viteConfig, required) {
+			t.Fatalf("Vite multi-page build config missing: %s", required)
+		}
+	}
+	if !strings.Contains(pnpmLock, "react") || !strings.Contains(pnpmLock, "vite") {
+		t.Fatal("pnpm-lock.yaml does not include frontend runtime/build dependencies")
+	}
+	if !strings.Contains(pnpmWorkspace, "esbuild: true") {
+		t.Fatal("pnpm-workspace.yaml must allow esbuild build scripts for pnpm 11")
+	}
+	if !strings.Contains(makefile, "FRONTEND_DIR := frontend") ||
+		!strings.Contains(makefile, "pnpm --dir $(FRONTEND_DIR) install") ||
+		!strings.Contains(makefile, "pnpm --dir $(FRONTEND_DIR) build") {
+		t.Fatal("Makefile must install and build the pnpm frontend before Go build")
 	}
 }
 

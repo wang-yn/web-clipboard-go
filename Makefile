@@ -1,14 +1,17 @@
-.PHONY: build docker-build docker-run docker-stop docker-logs clean help run test compose-up compose-down
+.PHONY: build backend-build frontend-install frontend-build docker-build docker-run docker-stop docker-logs clean help run test compose-up compose-down
 
 IMAGE_NAME := web-clipboard-go
 TAG := latest
 PORT := 5000
 GO_ENTRY := ./backend/cmd/web-clipboard
+FRONTEND_DIR := frontend
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  build         - Build Go application"
+	@echo "  build         - Build frontend and Go application"
+	@echo "  backend-build - Build Go application only"
+	@echo "  frontend-build - Install and build frontend"
 	@echo "  run           - Run the application"
 	@echo "  test          - Run tests"
 	@echo "  docker-build  - Build Docker image"
@@ -19,11 +22,24 @@ help:
 	@echo "  compose-down  - Stop docker-compose services"
 	@echo "  clean         - Clean up Docker resources and build artifacts"
 
+# Build full application
+build: frontend-build backend-build
+
 # Build Go application
-build:
+backend-build:
 	@echo "Building Go application..."
 	go build -o bin/web-clipboard-go.exe $(GO_ENTRY)
 	@echo "Build completed! Binary: bin/web-clipboard-go.exe"
+
+# Install frontend dependencies
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	pnpm --dir $(FRONTEND_DIR) install --frozen-lockfile
+
+# Build frontend assets
+frontend-build: frontend-install
+	@echo "Building frontend..."
+	pnpm --dir $(FRONTEND_DIR) build
 
 # Run the application
 run: build
@@ -31,7 +47,7 @@ run: build
 	./bin/web-clipboard-go.exe
 
 # Run tests
-test:
+test: frontend-build
 	@echo "Running tests..."
 	go test -v ./...
 
@@ -80,4 +96,5 @@ clean:
 	docker system prune -f
 	@echo "Cleaning up build artifacts..."
 	-rm -rf bin/
+	-rm -rf frontend/dist/
 	@echo "Cleanup completed!"

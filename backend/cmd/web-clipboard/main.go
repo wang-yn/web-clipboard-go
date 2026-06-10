@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,8 +20,6 @@ import (
 )
 
 func main() {
-	mime.AddExtensionType(".jsx", "application/javascript")
-
 	// Initialize user manager
 	userManager, err := services.NewUserManager("./data")
 	if err != nil {
@@ -119,15 +116,15 @@ func setupRouter(app *models.App) *gin.Engine {
 	// Admin-only cleanup endpoint
 	api.GET("/cleanup", middleware.AdminMiddleware(app), handler.Cleanup)
 
-	router.Static("/static", "./frontend/static")
-	router.StaticFile("/favicon.ico", "./frontend/static/favicon.ico")
+	router.Static("/assets", "./frontend/dist/assets")
+	router.StaticFile("/favicon.ico", "./frontend/dist/favicon.ico")
 
 	// Public routes for login and main pages
 	router.GET("/login.html", func(c *gin.Context) {
-		c.File("./frontend/templates/login.html")
+		c.File("./frontend/dist/login.html")
 	})
 	router.GET("/", func(c *gin.Context) {
-		c.File("./frontend/templates/index.html")
+		c.File("./frontend/dist/index.html")
 	})
 
 	return router
