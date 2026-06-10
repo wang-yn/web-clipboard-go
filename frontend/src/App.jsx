@@ -1,9 +1,46 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+    Copy,
+    Download,
+    FileIcon,
+    FileText,
+    FolderOpen,
+    KeyRound,
+    Languages,
+    LogOut,
+    Pencil,
+    RotateCcw,
+    Save,
+    Trash2,
+    Upload,
+    UserPlus,
+    X
+} from 'lucide-react';
 import { Auth } from './auth.js';
 import { i18n } from './i18n.js';
 import './styles.css';
 
 const e = React.createElement;
+
+function IconLabel({ icon: Icon, label }) {
+    return e('span', { className: 'inline-flex items-center justify-center gap-2' },
+        e(Icon, { size: 16, 'aria-hidden': true }),
+        e('span', null, label)
+    );
+}
+
+function RecentTypeIcon({ type }) {
+    const Icon = type === 'text' ? FileText : FileIcon;
+    return e('span', {
+        className: type === 'text'
+            ? 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700'
+            : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700',
+        'aria-label': type === 'text' ? 'Text item' : 'File item'
+    },
+        e(Icon, { size: 18, 'aria-hidden': true }),
+        e('span', { className: 'sr-only' }, type === 'text' ? 'Text item' : 'File item')
+    );
+}
 
 function useMessage() {
     const [message, setMessage] = useState(null);
@@ -71,21 +108,21 @@ function AccountMenu({ user, language, onLanguageChange, onChangePassword }) {
         ),
         e('div', { className: 'flex flex-wrap gap-2 justify-end' },
             e('button', {
-                className: `px-3 py-2 rounded-lg text-sm font-medium ${language === 'en' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700'}`,
+                className: `px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 ${language === 'en' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700'}`,
                 onClick: () => onLanguageChange('en')
-            }, 'English'),
+            }, e(IconLabel, { icon: Languages, label: 'English' })),
             e('button', {
-                className: `px-3 py-2 rounded-lg text-sm font-medium ${language === 'zh' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700'}`,
+                className: `px-3 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 ${language === 'zh' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700'}`,
                 onClick: () => onLanguageChange('zh')
-            }, '中文'),
+            }, e(IconLabel, { icon: Languages, label: '中文' })),
             e('button', {
-                className: 'bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium',
+                className: 'bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2',
                 onClick: onChangePassword
-            }, i18n.t('change-password')),
+            }, e(IconLabel, { icon: KeyRound, label: i18n.t('change-password') })),
             e('button', {
-                className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium',
+                className: 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2',
                 onClick: () => Auth.logout()
-            }, i18n.t('logout'))
+            }, e(IconLabel, { icon: LogOut, label: i18n.t('logout') }))
         )
     );
 }
@@ -210,8 +247,8 @@ function ClipboardPanel({ showMessage }) {
                     onChange: (event) => setTextContent(event.target.value)
                 }),
                 e('div', { className: 'flex flex-col sm:flex-row gap-2 mt-4' },
-                    e('button', { className: 'flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium text-sm', onClick: saveText }, i18n.t('save-text')),
-                    e('button', { className: 'flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm', onClick: copyCurrentText }, i18n.t('copy-text'))
+                    e('button', { className: 'flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium text-sm inline-flex items-center justify-center gap-2', onClick: saveText }, e(IconLabel, { icon: Save, label: i18n.t('save-text') })),
+                    e('button', { className: 'flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg font-medium text-sm inline-flex items-center justify-center gap-2', onClick: copyCurrentText }, e(IconLabel, { icon: Copy, label: i18n.t('copy-text') }))
                 )
             ),
             e('div', { className: 'bg-white rounded-lg shadow-md p-4 sm:p-6' },
@@ -231,7 +268,7 @@ function ClipboardPanel({ showMessage }) {
                     },
                     onDragLeave: () => setDragActive(false),
                     onDrop: handleDroppedFile
-                }, i18n.t('select-file')),
+                }, e(IconLabel, { icon: FolderOpen, label: i18n.t('select-file') })),
                 selectedFile && e('div', { className: 'mt-2 text-sm text-gray-600' },
                     i18n.t('selected-file', selectedFile.name, (selectedFile.size / 1024 / 1024).toFixed(2))
                 ),
@@ -239,7 +276,7 @@ function ClipboardPanel({ showMessage }) {
                     className: 'w-full mt-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white py-2 px-4 rounded-lg font-medium text-sm',
                     disabled: !selectedFile,
                     onClick: uploadFile
-                }, i18n.t('upload-file'))
+                }, e(IconLabel, { icon: Upload, label: i18n.t('upload-file') }))
             )
         ),
         e(RecentItems, { items: recentItems, persistRecent, showMessage })
@@ -316,7 +353,7 @@ function RecentItems({ items, persistRecent, showMessage }) {
                 e('div', { key: item.id, className: 'flex items-center justify-between p-3 bg-gray-50 rounded border' },
                     e('div', { className: 'flex-1 min-w-0' },
                         e('div', { className: 'flex items-center gap-2' },
-                            e('span', { className: 'text-sm' }, item.type === 'text' ? 'Text' : 'File'),
+                            e(RecentTypeIcon, { type: item.type }),
                             e('span', { className: 'font-medium text-sm truncate' }, item.description)
                         ),
                         e('div', { className: 'text-xs text-gray-500 mt-1' }, i18n.t('created', new Date(item.createdAt).toLocaleString()))
@@ -325,7 +362,10 @@ function RecentItems({ items, persistRecent, showMessage }) {
                         className: 'px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs',
                         title: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file'),
                         onClick: () => loadItem(item.type, item.id)
-                    }, item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file'))
+                    }, e(IconLabel, {
+                        icon: item.type === 'text' ? Copy : Download,
+                        label: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file')
+                    }))
                 )
             ))
     );
@@ -365,8 +405,8 @@ function ChangePasswordModal({ user, onClose, showMessage }) {
             e(PasswordField, { label: i18n.t('new-password'), value: password, onChange: setPassword }),
             e(PasswordField, { label: i18n.t('confirm-password'), value: confirmPassword, onChange: setConfirmPassword }),
             e('div', { className: 'flex justify-end gap-2' },
-                e('button', { type: 'button', className: 'px-4 py-2 rounded bg-gray-100 text-gray-700', onClick: onClose }, i18n.t('cancel')),
-                e('button', { type: 'submit', disabled: saving, className: 'px-4 py-2 rounded bg-blue-500 text-white disabled:opacity-50' }, i18n.t('save'))
+                e('button', { type: 'button', className: 'px-4 py-2 rounded bg-gray-100 text-gray-700 inline-flex items-center gap-2', onClick: onClose }, e(IconLabel, { icon: X, label: i18n.t('cancel') })),
+                e('button', { type: 'submit', disabled: saving, className: 'px-4 py-2 rounded bg-blue-500 text-white disabled:opacity-50 inline-flex items-center gap-2' }, e(IconLabel, { icon: Save, label: i18n.t('save') }))
             )
         )
     );
@@ -453,7 +493,7 @@ function UserManagement({ currentUser, showMessage }) {
     return e('section', { className: 'mt-6 sm:mt-8 bg-white rounded-lg shadow-md p-4 sm:p-6' },
         e('div', { className: 'flex justify-between items-center mb-4 gap-3' },
             e('h2', { className: 'text-lg sm:text-xl font-semibold text-gray-700' }, i18n.t('user-management')),
-            e('button', { className: 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm', onClick: () => setCreating(true) }, i18n.t('create-user'))
+            e('button', { className: 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm inline-flex items-center gap-2', onClick: () => setCreating(true) }, e(IconLabel, { icon: UserPlus, label: i18n.t('create-user') }))
         ),
         loading
             ? e('p', { className: 'text-sm text-gray-500' }, 'Loading...')
@@ -473,9 +513,9 @@ function UserManagement({ currentUser, showMessage }) {
                         e('td', { className: 'py-2 pr-3' }, user.isActive ? i18n.t('active') : i18n.t('inactive')),
                         e('td', { className: 'py-2 pr-3' },
                             e('div', { className: 'flex flex-wrap gap-2 justify-end' },
-                                e('button', { className: 'px-2 py-1 rounded bg-gray-100', onClick: () => setEditingUser(user) }, i18n.t('edit-user')),
-                                e('button', { className: 'px-2 py-1 rounded bg-yellow-100 text-yellow-800', onClick: () => setResetUser(user) }, i18n.t('reset-password')),
-                                e('button', { className: 'px-2 py-1 rounded bg-red-100 text-red-700', onClick: () => deleteUser(user) }, i18n.t('delete-user'))
+                                e('button', { className: 'px-2 py-1 rounded bg-gray-100 inline-flex items-center gap-1', onClick: () => setEditingUser(user) }, e(IconLabel, { icon: Pencil, label: i18n.t('edit-user') })),
+                                e('button', { className: 'px-2 py-1 rounded bg-yellow-100 text-yellow-800 inline-flex items-center gap-1', onClick: () => setResetUser(user) }, e(IconLabel, { icon: RotateCcw, label: i18n.t('reset-password') })),
+                                e('button', { className: 'px-2 py-1 rounded bg-red-100 text-red-700 inline-flex items-center gap-1', onClick: () => deleteUser(user) }, e(IconLabel, { icon: Trash2, label: i18n.t('delete-user') }))
                             )
                         )
                     )))
@@ -571,7 +611,9 @@ function Modal({ title, children, onClose }) {
         e('div', { className: 'bg-white rounded-lg shadow-lg w-full max-w-lg p-5' },
             e('div', { className: 'flex justify-between items-center mb-4' },
                 e('h3', { className: 'text-lg font-semibold text-gray-800' }, title),
-                e('button', { className: 'text-gray-500 hover:text-gray-800', onClick: onClose }, 'x')
+                e('button', { className: 'text-gray-500 hover:text-gray-800', 'aria-label': i18n.t('cancel'), onClick: onClose },
+                    e(X, { size: 20, 'aria-hidden': true })
+                )
             ),
             children
         )
@@ -580,8 +622,8 @@ function Modal({ title, children, onClose }) {
 
 function ModalActions({ onClose }) {
     return e('div', { className: 'flex justify-end gap-2' },
-        e('button', { type: 'button', className: 'px-4 py-2 rounded bg-gray-100 text-gray-700', onClick: onClose }, i18n.t('cancel')),
-        e('button', { type: 'submit', className: 'px-4 py-2 rounded bg-blue-500 text-white' }, i18n.t('save'))
+        e('button', { type: 'button', className: 'px-4 py-2 rounded bg-gray-100 text-gray-700 inline-flex items-center gap-2', onClick: onClose }, e(IconLabel, { icon: X, label: i18n.t('cancel') })),
+        e('button', { type: 'submit', className: 'px-4 py-2 rounded bg-blue-500 text-white inline-flex items-center gap-2' }, e(IconLabel, { icon: Save, label: i18n.t('save') }))
     );
 }
 
@@ -601,9 +643,11 @@ function PasswordField({ label, value, onChange, required = true }) {
 
 function StatusMessage({ message }) {
     return e('div', {
-        className: `mt-4 p-3 rounded-lg text-sm ${message.type === 'error'
-            ? 'bg-red-100 text-red-700 border border-red-200'
-            : 'bg-green-100 text-green-700 border border-green-200'}`
+        role: 'status',
+        'aria-live': 'polite',
+        className: `fixed top-4 right-4 z-50 max-w-sm rounded-lg px-4 py-3 text-sm shadow-lg ${message.type === 'error'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'bg-green-50 text-green-700 border border-green-200'}`
     }, message.text);
 }
 
