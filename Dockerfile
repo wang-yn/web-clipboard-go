@@ -1,3 +1,16 @@
+# Build frontend assets
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+RUN corepack enable
+
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend/ ./
+RUN pnpm build
+
 # Multi-stage build for Go application
 FROM golang:alpine AS builder
 
@@ -34,8 +47,8 @@ WORKDIR /app
 # Copy the binary from builder stage
 COPY --from=builder /app/web-clipboard-go .
 
-# Copy frontend files
-COPY --from=builder /app/frontend ./frontend
+# Copy built frontend files
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

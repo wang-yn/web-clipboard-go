@@ -47,7 +47,7 @@ func SecurityHeadersMiddleware(app *models.App) gin.HandlerFunc {
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' cdn.tailwindcss.com")
+		c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'")
 		c.Next()
 	}
 }

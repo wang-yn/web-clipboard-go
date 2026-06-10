@@ -5,7 +5,7 @@ A Go implementation of a temporary web clipboard for authenticated text and file
 ## Features
 
 - Save text and files behind authenticated API endpoints
-- React-based frontend served as static assets by the Go server
+- React frontend built by pnpm and Vite, then served as static assets by the Go server
 - Recent item actions for copying text and downloading files
 - User authentication, password changes, and admin user management
 - File validation, content checks, rate limiting, and security headers
@@ -19,8 +19,11 @@ web-clipboard-go/
 │   ├── cmd/web-clipboard/     # Go application entry point
 │   └── internal/              # handlers, middleware, models, services, utils
 ├── frontend/
-│   ├── static/                # React UMD bundles, JSX entry files, favicon
-│   └── templates/             # HTML page shells
+│   ├── src/                   # React components, auth helper, i18n, Tailwind entry CSS
+│   ├── public/                # Static public assets copied by Vite
+│   ├── index.html             # Main Vite page shell
+│   ├── login.html             # Login Vite page shell
+│   └── package.json           # pnpm-managed frontend dependencies and scripts
 ├── .github/workflows/         # GHCR image build workflow
 ├── Dockerfile
 ├── docker-compose.yml
@@ -36,14 +39,16 @@ Generated binaries and runtime data belong in ignored paths such as `bin/` and `
 Use Make for local development:
 
 ```bash
-make build    # Build bin/web-clipboard-go.exe from ./backend/cmd/web-clipboard
+make build    # Build frontend/dist and bin/web-clipboard-go.exe
 make run      # Build and run on http://localhost:5000
-make test     # Run go test -v ./...
+make test     # Build frontend and run go test -v ./...
 ```
 
 Manual commands:
 
 ```bash
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend build
 go test ./...
 go build -o bin/web-clipboard-go.exe ./backend/cmd/web-clipboard
 ./bin/web-clipboard-go.exe
@@ -114,7 +119,9 @@ docker compose down
 ## Makefile Commands
 
 ```bash
-make build          # Build Go application
+make build          # Build frontend and Go application
+make frontend-build # Build frontend/dist with pnpm and Vite
+make backend-build  # Build Go application only
 make run            # Build and run locally
 make test           # Run tests
 make docker-build   # Build Docker image
@@ -131,4 +138,4 @@ make help           # Show available targets
 
 - Do not commit secrets, generated binaries, or runtime `data/`.
 - Preserve file validation, content scanning, rate limits, session expiry, and last-admin protection when changing auth or user-management code.
-- Reverse proxies must forward `/`, `/login.html`, `/api/*`, `/static/*`, and `/favicon.ico`.
+- Reverse proxies must forward `/`, `/login.html`, `/api/*`, `/assets/*`, and `/favicon.ico`.

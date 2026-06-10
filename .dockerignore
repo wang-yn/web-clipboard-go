@@ -11,6 +11,12 @@ README.md
 # Build artifacts
 *.log
 *.tmp
+bin/
+data/
+dist/
+frontend/dist/
+node_modules/
+frontend/node_modules/
 
 # IDE files
 .vscode/

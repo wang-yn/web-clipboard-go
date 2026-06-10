@@ -1,7 +1,11 @@
-const e = React.createElement;
-const { useEffect, useState } = React;
+import React, { useEffect, useState } from 'react';
+import { Auth } from './auth.js';
+import { i18n } from './i18n.js';
+import './styles.css';
 
-function LoginApp() {
+const e = React.createElement;
+
+export function LoginApp() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
@@ -89,5 +93,3 @@ function LoginApp() {
         )
     );
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(e(LoginApp));
