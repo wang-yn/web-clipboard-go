@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"web-clipboard-go/internal/models"
-	"web-clipboard-go/internal/utils"
+	"web-clipboard-go/backend/internal/models"
+	"web-clipboard-go/backend/internal/utils"
 )
 
 type UserManager struct {

@@ -16,9 +16,9 @@ func readFrontendFile(t *testing.T, path string) string {
 }
 
 func TestFrontendUsesReactComponentStructure(t *testing.T) {
-	index := readFrontendFile(t, "web/templates/index.html")
-	login := readFrontendFile(t, "web/templates/login.html")
-	app := readFrontendFile(t, "web/static/js/app.jsx")
+	index := readFrontendFile(t, "frontend/templates/index.html")
+	login := readFrontendFile(t, "frontend/templates/login.html")
+	app := readFrontendFile(t, "frontend/static/js/app.jsx")
 
 	for _, html := range []string{index, login} {
 		for _, required := range []string{`id="root"`, "/vendor/react.production.min.js", "/vendor/react-dom.production.min.js"} {
@@ -36,9 +36,9 @@ func TestFrontendUsesReactComponentStructure(t *testing.T) {
 }
 
 func TestFrontendHidesManualClipboardIDs(t *testing.T) {
-	html := readFrontendFile(t, "web/templates/index.html")
-	js := readFrontendFile(t, "web/static/js/app.jsx")
-	translations := readFrontendFile(t, "web/static/js/i18n.js")
+	html := readFrontendFile(t, "frontend/templates/index.html")
+	js := readFrontendFile(t, "frontend/static/js/app.jsx")
+	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
 
 	for _, forbidden := range []string{`id="textId"`, `id="fileId"`} {
 		if strings.Contains(html, forbidden) {
@@ -66,8 +66,8 @@ func TestFrontendHidesManualClipboardIDs(t *testing.T) {
 }
 
 func TestLoginDoesNotRestoreShareLinks(t *testing.T) {
-	auth := readFrontendFile(t, "web/static/js/auth.js")
-	login := readFrontendFile(t, "web/templates/login.html")
+	auth := readFrontendFile(t, "frontend/static/js/auth.js")
+	login := readFrontendFile(t, "frontend/templates/login.html")
 
 	for _, forbidden := range []string{"redirect=", "window.location.hash", "encodeURIComponent", "getRedirectTarget", "URLSearchParams"} {
 		if strings.Contains(auth+login, forbidden) {
@@ -77,7 +77,7 @@ func TestLoginDoesNotRestoreShareLinks(t *testing.T) {
 }
 
 func TestAuthCheckRejectsNonOKCurrentUserResponses(t *testing.T) {
-	auth := readFrontendFile(t, "web/static/js/auth.js")
+	auth := readFrontendFile(t, "frontend/static/js/auth.js")
 
 	checkStart := strings.Index(auth, "static async checkAuth()")
 	checkEnd := strings.Index(auth, "static getAuthHeader()")
@@ -91,7 +91,7 @@ func TestAuthCheckRejectsNonOKCurrentUserResponses(t *testing.T) {
 }
 
 func TestFrontendDecodesRFC5987DownloadFilenames(t *testing.T) {
-	js := readFrontendFile(t, "web/static/js/app.jsx")
+	js := readFrontendFile(t, "frontend/static/js/app.jsx")
 	for _, required := range []string{"getDownloadFilename(", "filename\\*", "decodeURIComponent"} {
 		if !strings.Contains(js, required) {
 			t.Fatalf("frontend filename parser does not decode RFC 5987 filename*: missing %s", required)
@@ -100,8 +100,8 @@ func TestFrontendDecodesRFC5987DownloadFilenames(t *testing.T) {
 }
 
 func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
-	js := readFrontendFile(t, "web/static/js/app.jsx")
-	translations := readFrontendFile(t, "web/static/js/i18n.js")
+	js := readFrontendFile(t, "frontend/static/js/app.jsx")
+	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
 	for _, required := range []string{"copyTextItem(", "copyTextItem(id)", "downloadFile(id)", "item-action-copy-text", "item-action-download-file"} {
 		if !strings.Contains(js+translations, required) {
 			t.Fatalf("recent item action contract missing: %s", required)
@@ -114,7 +114,7 @@ func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
 }
 
 func TestReactFilePickerKeepsDragAndDrop(t *testing.T) {
-	js := readFrontendFile(t, "web/static/js/app.jsx")
+	js := readFrontendFile(t, "frontend/static/js/app.jsx")
 
 	for _, required := range []string{"onDragOver", "onDragLeave", "onDrop", "handleDroppedFile(", "setDragActive("} {
 		if !strings.Contains(js, required) {
@@ -124,9 +124,9 @@ func TestReactFilePickerKeepsDragAndDrop(t *testing.T) {
 }
 
 func TestFrontendProvidesPasswordAndUserManagement(t *testing.T) {
-	app := readFrontendFile(t, "web/static/js/app.jsx")
-	auth := readFrontendFile(t, "web/static/js/auth.js")
-	translations := readFrontendFile(t, "web/static/js/i18n.js")
+	app := readFrontendFile(t, "frontend/static/js/app.jsx")
+	auth := readFrontendFile(t, "frontend/static/js/auth.js")
+	translations := readFrontendFile(t, "frontend/static/js/i18n.js")
 
 	for _, required := range []string{"changePassword(", "`/api/users/${userId}/password`", "newPassword", "function ChangePasswordModal("} {
 		if !strings.Contains(app+auth, required) {
@@ -162,9 +162,9 @@ func TestFrontendProvidesPasswordAndUserManagement(t *testing.T) {
 }
 
 func TestGoRouterServesReactStaticAssets(t *testing.T) {
-	main := readFrontendFile(t, "cmd/web-clipboard/main.go")
+	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
 
-	for _, required := range []string{`mime.AddExtensionType(".jsx", "application/javascript")`, `router.Static("/static", "./web/static")`, `router.StaticFile("/favicon.ico"`} {
+	for _, required := range []string{`mime.AddExtensionType(".jsx", "application/javascript")`, `router.Static("/static", "./frontend/static")`, `router.StaticFile("/favicon.ico"`} {
 		if !strings.Contains(main, required) {
 			t.Fatalf("Go router static asset route missing: %s", required)
 		}
@@ -178,7 +178,7 @@ func TestGoRouterServesReactStaticAssets(t *testing.T) {
 }
 
 func TestPasswordRouteIsAuthenticatedButNotAdminOnly(t *testing.T) {
-	main := readFrontendFile(t, "cmd/web-clipboard/main.go")
+	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
 
 	if !strings.Contains(main, `api.PUT("/users/:id/password", handler.ChangeUserPassword)`) {
 		t.Fatal("password change route must be available to authenticated users")

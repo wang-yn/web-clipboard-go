@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"web-clipboard-go/internal/models"
+	"web-clipboard-go/backend/internal/models"
 )
 
 // createUser creates a new user (admin only)

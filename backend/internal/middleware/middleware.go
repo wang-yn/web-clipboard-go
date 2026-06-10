@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"web-clipboard-go/internal/models"
+	"web-clipboard-go/backend/internal/models"
 )
 
 // CorsMiddleware handles CORS for the application

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"web-clipboard-go/internal/models"
+	"web-clipboard-go/backend/internal/models"
 )
 
 type AuthService struct {

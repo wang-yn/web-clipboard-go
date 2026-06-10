@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"web-clipboard-go/internal/models"
+	"web-clipboard-go/backend/internal/models"
 )
 
 type allowSecurityService struct{}
