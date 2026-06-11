@@ -25,7 +25,7 @@ Place Go tests next to the code they cover using `*_test.go`. Prefer table-drive
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses concise intent-style messages, often in Chinese, such as `整理打包脚本`, `代码整理`, and `refactor: 移除重复的安全服务和限流服务检查逻辑`. Keep commits focused and describe why the change exists. Follow the Lore commit protocol when possible: include useful trailers such as `Constraint:`, `Rejected:`, `Confidence:`, `Scope-risk:`, `Tested:`, and `Not-tested:` after a blank line.
+Commit messages must use Chinese only. Keep commits focused and describe why the change exists. Follow the Lore commit protocol when possible: include useful trailers such as `Constraint:`, `Rejected:`, `Confidence:`, `Scope-risk:`, `Tested:`, and `Not-tested:` after a blank line. Trailer values must also use Chinese; command names, paths, API routes, environment variables, package names, configuration keys, and code symbols may remain unchanged.
 
 Pull requests should include a short summary, verification commands run, configuration or security impact, and screenshots when UI behavior changes.
 
