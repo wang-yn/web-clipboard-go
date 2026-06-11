@@ -51,7 +51,9 @@ COPY --from=builder /app/web-clipboard-go .
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Change ownership to non-root user
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /data && chown -R appuser:appuser /app /data
+
+VOLUME ["/data"]
 
 # Switch to non-root user
 USER appuser

@@ -10,7 +10,8 @@ services:
     environment:
       - GIN_MODE=release
     volumes:
-      # Optional: mount host directory for persistent temp files
+      - ./data:/data
+      # Optional: mount temp files only if you need to inspect temporary uploads.
       # - ./temp:/tmp/web-clipboard-go
     restart: unless-stopped
     healthcheck:

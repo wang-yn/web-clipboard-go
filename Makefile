@@ -44,7 +44,7 @@ frontend-build: frontend-install
 # Run the application
 run: build
 	@echo "Running application..."
-	./bin/web-clipboard-go.exe
+	WEB_CLIPBOARD_DATA_DIR=./data ./bin/web-clipboard-go.exe
 
 # Run tests
 test: frontend-build
@@ -62,7 +62,7 @@ docker-run:
 	@echo "Starting Docker container..."
 	-docker stop $(IMAGE_NAME) 2>/dev/null || true
 	-docker rm $(IMAGE_NAME) 2>/dev/null || true
-	docker run -d --name $(IMAGE_NAME) --restart unless-stopped -p $(PORT):5000 $(IMAGE_NAME):$(TAG)
+	docker run -d --name $(IMAGE_NAME) --restart unless-stopped -p $(PORT):5000 -v ./data:/data $(IMAGE_NAME):$(TAG)
 	@echo "Container started at http://localhost:$(PORT)"
 
 # Stop Docker container

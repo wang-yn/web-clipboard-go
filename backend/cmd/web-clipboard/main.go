@@ -21,10 +21,11 @@ import (
 
 func main() {
 	// Initialize user manager
-	userManager, err := services.NewUserManager("./data")
+	userManager, err := services.NewUserManager(getDataDir())
 	if err != nil {
 		log.Fatal("Failed to initialize user manager:", err)
 	}
+	authService := services.NewAuthService(userManager)
 
 	app := &models.App{
 		ClipboardData: make(map[string]*models.ClipboardItem),
@@ -33,7 +34,8 @@ func main() {
 		Security:      services.NewSecurityService(),
 		RateLimiter:   services.NewRateLimitService(),
 		UserManager:   userManager,
-		AuthService:   services.NewAuthService(userManager),
+		AuthService:   authService,
+		OAuthService:  services.NewOAuthServiceFromEnv(userManager, authService),
 	}
 
 	initTempDir(app.TempDir)
@@ -88,6 +90,10 @@ func setupRouter(app *models.App) *gin.Engine {
 		auth.POST("/login", handler.Login)
 		auth.POST("/logout", middleware.AuthMiddleware(app), handler.Logout)
 		auth.GET("/me", middleware.AuthMiddleware(app), handler.GetCurrentUser)
+		auth.GET("/providers", handler.ListAuthProviders)
+		auth.GET("/oauth/:provider/start", handler.StartOAuthLogin)
+		auth.GET("/oauth/:provider/callback", handler.HandleOAuthCallback)
+		auth.POST("/oauth/complete", handler.CompleteOAuthLogin)
 	}
 
 	// Protected API endpoints (require authentication)
@@ -124,6 +130,9 @@ func setupRouter(app *models.App) *gin.Engine {
 	router.GET("/login.html", func(c *gin.Context) {
 		c.File("./frontend/dist/login.html")
 	})
+	router.GET("/settings.html", func(c *gin.Context) {
+		c.File("./frontend/dist/settings.html")
+	})
 	router.GET("/", func(c *gin.Context) {
 		c.File("./frontend/dist/index.html")
 	})
@@ -133,6 +142,13 @@ func setupRouter(app *models.App) *gin.Engine {
 
 func getTempDir() string {
 	return filepath.Join(os.TempDir(), "web-clipboard-go")
+}
+
+func getDataDir() string {
+	if value := os.Getenv("WEB_CLIPBOARD_DATA_DIR"); value != "" {
+		return value
+	}
+	return "/data"
 }
 
 func initTempDir(tempDir string) {
