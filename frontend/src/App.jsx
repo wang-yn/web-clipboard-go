@@ -131,24 +131,36 @@ function ClipboardPanel({ showMessage }) {
     const [textContent, setTextContent] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [dragActive, setDragActive] = useState(false);
-    const [recentItems, setRecentItems] = useState(() => JSON.parse(localStorage.getItem('recentItems') || '[]'));
+    const [recentItems, setRecentItems] = useState([]);
 
     useEffect(() => {
-        const timer = setInterval(cleanupExpiredItems, 60000);
+        const timer = setInterval(() => {
+            loadRecentItems(false);
+            cleanupExpiredItems();
+        }, 60000);
+        loadRecentItems();
         cleanupExpiredItems();
         return () => clearInterval(timer);
     }, []);
 
-    function persistRecent(items) {
+    async function loadRecentItems(showErrors = true) {
+        try {
+            const data = await Auth.json('/api/items');
+            setRecentItems(data.items || []);
+        } catch (error) {
+            if (showErrors) {
+                showMessage(i18n.t('load-recent-failed', error.message), 'error');
+            }
+        }
+    }
+
+    function setRecent(items) {
         setRecentItems(items);
-        localStorage.setItem('recentItems', JSON.stringify(items));
     }
 
     function cleanupExpiredItems() {
         const now = new Date();
-        const validItems = JSON.parse(localStorage.getItem('recentItems') || '[]')
-            .filter((item) => new Date(item.expiresAt) > now);
-        persistRecent(validItems);
+        setRecentItems((currentItems) => currentItems.filter((item) => new Date(item.expiresAt) > now));
     }
 
     function addToRecent(type, id, description, expiresAt) {
@@ -161,7 +173,6 @@ function ClipboardPanel({ showMessage }) {
         };
         setRecentItems((currentItems) => {
             const nextItems = [item, ...currentItems.filter((current) => current.id !== id)].slice(0, 10);
-            localStorage.setItem('recentItems', JSON.stringify(nextItems));
             return nextItems;
         });
     }
@@ -184,6 +195,7 @@ function ClipboardPanel({ showMessage }) {
             }
             const data = await response.json();
             addToRecent('text', data.id, `${content.substring(0, 50)}...`, data.expiresAt);
+            loadRecentItems();
             showMessage(i18n.t('text-saved'));
         } catch (error) {
             showMessage(i18n.t('error-saving-text', error.message), 'error');
@@ -221,6 +233,7 @@ function ClipboardPanel({ showMessage }) {
             }
             const data = await response.json();
             addToRecent('file', data.id, data.fileName, data.expiresAt);
+            loadRecentItems();
             showMessage(i18n.t('file-uploaded'));
         } catch (error) {
             showMessage(i18n.t('error-uploading-file', error.message), 'error');
@@ -279,11 +292,11 @@ function ClipboardPanel({ showMessage }) {
                 }, e(IconLabel, { icon: Upload, label: i18n.t('upload-file') }))
             )
         ),
-        e(RecentItems, { items: recentItems, persistRecent, showMessage })
+        e(RecentItems, { items: recentItems, setRecent, showMessage })
     );
 }
 
-function RecentItems({ items, persistRecent, showMessage }) {
+function RecentItems({ items, setRecent, showMessage }) {
     const validItems = useMemo(() => {
         const now = new Date();
         return items.filter((item) => new Date(item.expiresAt) > now);
@@ -341,7 +354,7 @@ function RecentItems({ items, persistRecent, showMessage }) {
 
     useEffect(() => {
         if (validItems.length !== items.length) {
-            persistRecent(validItems);
+            setRecent(validItems);
         }
     }, [validItems.length]);
 

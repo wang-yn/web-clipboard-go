@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -58,5 +59,75 @@ func TestGetFileUsesRFC5987FilenameForUnicodeDownloads(t *testing.T) {
 	}
 	if !strings.Contains(disposition, `filename*=UTF-8''%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A.txt`) {
 		t.Fatalf("expected RFC 5987 UTF-8 filename, got %q", disposition)
+	}
+}
+
+func TestListRecentItemsShowsCurrentUsersUnexpiredItemsAcrossSessions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Now().UTC()
+	app := &models.App{
+		ClipboardData: map[string]*models.ClipboardItem{
+			"same1": {
+				ID:        "same1",
+				Type:      "text",
+				UserID:    "user-1",
+				Content:   "text saved from another browser",
+				CreatedAt: now.Add(-1 * time.Minute),
+				ExpiresAt: now.Add(9 * time.Minute),
+			},
+			"same2": {
+				ID:        "same2",
+				Type:      "file",
+				UserID:    "user-1",
+				FileName:  "notes.txt",
+				CreatedAt: now.Add(-2 * time.Minute),
+				ExpiresAt: now.Add(8 * time.Minute),
+			},
+			"other": {
+				ID:        "other",
+				Type:      "text",
+				UserID:    "user-2",
+				Content:   "other user's text",
+				CreatedAt: now,
+				ExpiresAt: now.Add(10 * time.Minute),
+			},
+			"expired": {
+				ID:        "expired",
+				Type:      "text",
+				UserID:    "user-1",
+				Content:   "expired text",
+				CreatedAt: now.Add(-11 * time.Minute),
+				ExpiresAt: now.Add(-1 * time.Minute),
+			},
+		},
+		DataMutex: &sync.RWMutex{},
+		Security:  allowSecurityService{},
+	}
+	handler := &Handler{App: app}
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest("GET", "/api/items", nil)
+	context.Set("user", &models.User{ID: "user-1", Username: "same-user"})
+
+	handler.ListRecentItems(context)
+
+	if recorder.Code != 200 {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var response models.ListRecentItemsResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(response.Items) != 2 {
+		t.Fatalf("expected 2 current-user items, got %d: %#v", len(response.Items), response.Items)
+	}
+	if response.Items[0].ID != "same1" || response.Items[1].ID != "same2" {
+		t.Fatalf("expected current-user items newest first, got %#v", response.Items)
+	}
+	for _, item := range response.Items {
+		if item.ID == "other" || item.ID == "expired" {
+			t.Fatalf("unexpected item in current-user recent list: %#v", item)
+		}
 	}
 }
