@@ -25,6 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize user manager:", err)
 	}
+	authService := services.NewAuthService(userManager)
 
 	app := &models.App{
 		ClipboardData: make(map[string]*models.ClipboardItem),
@@ -33,7 +34,8 @@ func main() {
 		Security:      services.NewSecurityService(),
 		RateLimiter:   services.NewRateLimitService(),
 		UserManager:   userManager,
-		AuthService:   services.NewAuthService(userManager),
+		AuthService:   authService,
+		OAuthService:  services.NewOAuthServiceFromEnv(userManager, authService),
 	}
 
 	initTempDir(app.TempDir)
@@ -88,6 +90,10 @@ func setupRouter(app *models.App) *gin.Engine {
 		auth.POST("/login", handler.Login)
 		auth.POST("/logout", middleware.AuthMiddleware(app), handler.Logout)
 		auth.GET("/me", middleware.AuthMiddleware(app), handler.GetCurrentUser)
+		auth.GET("/providers", handler.ListAuthProviders)
+		auth.GET("/oauth/:provider/start", handler.StartOAuthLogin)
+		auth.GET("/oauth/:provider/callback", handler.HandleOAuthCallback)
+		auth.POST("/oauth/complete", handler.CompleteOAuthLogin)
 	}
 
 	// Protected API endpoints (require authentication)

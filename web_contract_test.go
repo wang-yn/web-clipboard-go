@@ -73,10 +73,16 @@ func TestFrontendHidesManualClipboardIDs(t *testing.T) {
 func TestLoginDoesNotRestoreShareLinks(t *testing.T) {
 	auth := readFrontendFile(t, "frontend/src/auth.js")
 	login := readFrontendFile(t, "frontend/login.html")
+	loginApp := readFrontendFile(t, "frontend/src/LoginApp.jsx")
 
 	for _, forbidden := range []string{"redirect=", "window.location.hash", "encodeURIComponent", "getRedirectTarget", "URLSearchParams"} {
 		if strings.Contains(auth+login, forbidden) {
 			t.Fatalf("share-link redirect workflow still present: %s", forbidden)
+		}
+	}
+	for _, forbidden := range []string{"redirect=", "window.location.hash", "getRedirectTarget"} {
+		if strings.Contains(loginApp, forbidden) {
+			t.Fatalf("share-link redirect workflow still present in LoginApp: %s", forbidden)
 		}
 	}
 }
@@ -183,7 +189,8 @@ func TestFrontendUsesIconsAndToastFeedback(t *testing.T) {
 		}
 	}
 	for _, required := range []string{
-		"import { LogIn } from 'lucide-react';",
+		"from 'lucide-react';",
+		"LogIn",
 		"function IconLabel(",
 		"icon: LogIn",
 		"inline-flex items-center justify-center gap-2",
@@ -300,5 +307,45 @@ func TestPasswordRouteIsAuthenticatedButNotAdminOnly(t *testing.T) {
 	}
 	if strings.Contains(main, `users.PUT("/:id/password", handler.ChangeUserPassword)`) {
 		t.Fatal("password change route is still nested under admin-only users group")
+	}
+}
+
+func TestOAuthRoutesAndLoginEntryPointsExist(t *testing.T) {
+	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
+	auth := readFrontendFile(t, "frontend/src/auth.js")
+	loginApp := readFrontendFile(t, "frontend/src/LoginApp.jsx")
+
+	for _, required := range []string{
+		`auth.GET("/providers", handler.ListAuthProviders)`,
+		`auth.GET("/oauth/:provider/start", handler.StartOAuthLogin)`,
+		`auth.GET("/oauth/:provider/callback", handler.HandleOAuthCallback)`,
+		`auth.POST("/oauth/complete", handler.CompleteOAuthLogin)`,
+	} {
+		if !strings.Contains(main, required) {
+			t.Fatalf("OAuth route missing: %s", required)
+		}
+	}
+
+	for _, required := range []string{
+		"getAuthProviders(",
+		"completeOAuthLogin(",
+		"'/api/auth/providers'",
+		"'/api/auth/oauth/complete'",
+		"`/api/auth/oauth/${provider}/start`",
+	} {
+		if !strings.Contains(auth, required) {
+			t.Fatalf("frontend OAuth auth helper missing: %s", required)
+		}
+	}
+
+	for _, required := range []string{
+		"loadAuthProviders(",
+		"params.get('oauth') === 'complete'",
+		"Auth.completeOAuthLogin()",
+		"Auth.startOAuthLogin(provider.name)",
+	} {
+		if !strings.Contains(loginApp, required) {
+			t.Fatalf("login OAuth entry point missing: %s", required)
+		}
 	}
 }

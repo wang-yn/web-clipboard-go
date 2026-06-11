@@ -1,9 +1,13 @@
 package models
 
 import (
+	"context"
+	"net/http"
 	"sync"
 	"time"
 )
+
+const OAuthHandoffCookieName = "oauth_handoff"
 
 // App represents the application state
 type App struct {
@@ -15,6 +19,7 @@ type App struct {
 	CleanupTicker *time.Ticker
 	UserManager   UserManager
 	AuthService   AuthService
+	OAuthService  OAuthService
 }
 
 // ClipboardItem represents a clipboard entry (text or file)
@@ -32,14 +37,27 @@ type ClipboardItem struct {
 
 // User represents a user account
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password"` // bcrypt hashed
-	Email     string    `json:"email"`
-	Role      string    `json:"role"` // "admin" or "user"
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	IsActive  bool      `json:"isActive"`
+	ID         string             `json:"id"`
+	Username   string             `json:"username"`
+	Password   string             `json:"password,omitempty"` // bcrypt hashed; empty for external-only users
+	Email      string             `json:"email"`
+	Role       string             `json:"role"` // "admin" or "user"
+	CreatedAt  time.Time          `json:"createdAt"`
+	UpdatedAt  time.Time          `json:"updatedAt"`
+	IsActive   bool               `json:"isActive"`
+	Identities []ExternalIdentity `json:"identities,omitempty"`
+}
+
+// ExternalIdentity links a local user to a third-party identity provider.
+type ExternalIdentity struct {
+	Provider      string    `json:"provider"`
+	Subject       string    `json:"subject"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"emailVerified"`
+	Username      string    `json:"username"`
+	DisplayName   string    `json:"displayName"`
+	AvatarURL     string    `json:"avatarUrl"`
+	LinkedAt      time.Time `json:"linkedAt"`
 }
 
 // UserResponse is the user data returned to clients (without password)
@@ -117,6 +135,11 @@ type LoginResponse struct {
 	ExpiresAt time.Time    `json:"expiresAt"`
 }
 
+type AuthProviderResponse struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+}
+
 // Request types for user management
 type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"`
@@ -139,8 +162,12 @@ type ChangePasswordRequest struct {
 // but in practice they expect *gin.Context
 type UserManager interface {
 	CreateUser(username, password, email, role string) (*User, error)
+	CreateExternalUser(identity ExternalIdentity, role string) (*User, error)
+	LinkExternalIdentity(userID string, identity ExternalIdentity) (*User, error)
 	GetUser(id string) *User
 	GetUserByUsername(username string) *User
+	GetUserByExternalIdentity(provider, subject string) *User
+	GetUserByVerifiedEmail(email string) *User
 	GetAllUsers() []User
 	UpdateUser(id string, email, role string, isActive *bool) (*User, error)
 	ChangePassword(id, newPassword string) error
@@ -155,6 +182,13 @@ type AuthService interface {
 	DeleteSession(token string)
 	DeleteUserSessions(userID string)
 	CleanupExpiredSessions()
+}
+
+type OAuthService interface {
+	ListProviders() []AuthProviderResponse
+	StartLogin(ctx context.Context, provider string) (string, error)
+	HandleCallback(ctx context.Context, provider, code, state string) (*http.Cookie, error)
+	CompleteLogin(handoff string) (LoginResponse, *http.Cookie, error)
 }
 
 type SecurityService interface {

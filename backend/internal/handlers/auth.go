@@ -81,6 +81,81 @@ func (h *Handler) GetCurrentUser(c *gin.Context) {
 	c.JSON(http.StatusOK, models.ToUserResponse(userObj))
 }
 
+// ListAuthProviders returns enabled third-party login providers.
+func (h *Handler) ListAuthProviders(c *gin.Context) {
+	if h.App.OAuthService == nil {
+		c.JSON(http.StatusOK, gin.H{"providers": []models.AuthProviderResponse{}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"providers": h.App.OAuthService.ListProviders()})
+}
+
+// StartOAuthLogin redirects the browser to a third-party authorization page.
+func (h *Handler) StartOAuthLogin(c *gin.Context) {
+	if h.App.OAuthService == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "OAuth login is not enabled"})
+		return
+	}
+
+	authURL, err := h.App.OAuthService.StartLogin(c.Request.Context(), c.Param("provider"))
+	if err != nil {
+		log.Printf("Failed to start OAuth login for provider '%s': %v", c.Param("provider"), err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Redirect(http.StatusFound, authURL)
+}
+
+// HandleOAuthCallback handles the provider callback and creates a short-lived login handoff.
+func (h *Handler) HandleOAuthCallback(c *gin.Context) {
+	if h.App.OAuthService == nil {
+		c.Redirect(http.StatusFound, "/login.html?oauth=error")
+		return
+	}
+
+	handoffCookie, err := h.App.OAuthService.HandleCallback(
+		c.Request.Context(),
+		c.Param("provider"),
+		c.Query("code"),
+		c.Query("state"),
+	)
+	if err != nil {
+		log.Printf("OAuth callback failed for provider '%s': %v", c.Param("provider"), err)
+		c.Redirect(http.StatusFound, "/login.html?oauth=error")
+		return
+	}
+
+	http.SetCookie(c.Writer, handoffCookie)
+	c.Redirect(http.StatusFound, "/login.html?oauth=complete")
+}
+
+// CompleteOAuthLogin exchanges the short-lived handoff for the existing login response shape.
+func (h *Handler) CompleteOAuthLogin(c *gin.Context) {
+	if h.App.OAuthService == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "OAuth login is not enabled"})
+		return
+	}
+
+	cookie, err := c.Request.Cookie(models.OAuthHandoffCookieName)
+	if err != nil {
+		_, clearCookie, _ := h.App.OAuthService.CompleteLogin("")
+		http.SetCookie(c.Writer, clearCookie)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "OAuth login handoff is missing"})
+		return
+	}
+
+	response, clearCookie, err := h.App.OAuthService.CompleteLogin(cookie.Value)
+	http.SetCookie(c.Writer, clearCookie)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // extractToken extracts the token from the Authorization header or query parameter
 func extractToken(c *gin.Context) string {
 	// Try Authorization header first (Bearer token)

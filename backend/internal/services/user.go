@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"web-clipboard-go/backend/internal/models"
 	"web-clipboard-go/backend/internal/utils"
 )
+
+type ExternalIdentity = models.ExternalIdentity
 
 type UserManager struct {
 	users    map[string]*models.User // key: user ID
@@ -195,6 +198,86 @@ func (um *UserManager) CreateUser(username, password, email, role string) (*mode
 	return user, nil
 }
 
+// CreateExternalUser creates a local user backed by a third-party identity.
+func (um *UserManager) CreateExternalUser(identity ExternalIdentity, role string) (*models.User, error) {
+	identity = normalizeExternalIdentity(identity)
+	if err := validateExternalIdentity(identity); err != nil {
+		return nil, err
+	}
+	if role == "" {
+		role = "user"
+	}
+	if role != "admin" && role != "user" {
+		return nil, errors.New("role must be 'admin' or 'user'")
+	}
+	if existing := um.GetUserByExternalIdentity(identity.Provider, identity.Subject); existing != nil {
+		return nil, errors.New("external identity already linked")
+	}
+
+	username := um.uniqueExternalUsername(identity)
+	now := time.Now().UTC()
+	identity.LinkedAt = now
+	user := &models.User{
+		ID:         utils.GenerateUUID(),
+		Username:   username,
+		Password:   "",
+		Email:      identity.Email,
+		Role:       role,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		IsActive:   true,
+		Identities: []models.ExternalIdentity{identity},
+	}
+
+	um.mutex.Lock()
+	um.users[user.ID] = user
+	um.mutex.Unlock()
+
+	if err := um.saveUsers(); err != nil {
+		um.mutex.Lock()
+		delete(um.users, user.ID)
+		um.mutex.Unlock()
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// LinkExternalIdentity links a third-party identity to an existing local user.
+func (um *UserManager) LinkExternalIdentity(userID string, identity ExternalIdentity) (*models.User, error) {
+	identity = normalizeExternalIdentity(identity)
+	if err := validateExternalIdentity(identity); err != nil {
+		return nil, err
+	}
+
+	um.mutex.Lock()
+	user, exists := um.users[userID]
+	if !exists {
+		um.mutex.Unlock()
+		return nil, errors.New("user not found")
+	}
+	for _, existingUser := range um.users {
+		for _, existingIdentity := range existingUser.Identities {
+			if sameExternalIdentity(existingIdentity, identity) {
+				um.mutex.Unlock()
+				return nil, errors.New("external identity already linked")
+			}
+		}
+	}
+	identity.LinkedAt = time.Now().UTC()
+	user.Identities = append(user.Identities, identity)
+	if user.Email == "" && identity.EmailVerified {
+		user.Email = identity.Email
+	}
+	user.UpdatedAt = identity.LinkedAt
+	um.mutex.Unlock()
+
+	if err := um.saveUsers(); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 // GetUser gets a user by ID
 func (um *UserManager) GetUser(id string) *models.User {
 	um.mutex.RLock()
@@ -210,6 +293,43 @@ func (um *UserManager) GetUserByUsername(username string) *models.User {
 	username = strings.ToLower(strings.TrimSpace(username))
 	for _, user := range um.users {
 		if strings.ToLower(user.Username) == username {
+			return user
+		}
+	}
+	return nil
+}
+
+// GetUserByExternalIdentity gets a user by third-party provider and subject.
+func (um *UserManager) GetUserByExternalIdentity(provider, subject string) *models.User {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	subject = strings.TrimSpace(subject)
+	if provider == "" || subject == "" {
+		return nil
+	}
+
+	um.mutex.RLock()
+	defer um.mutex.RUnlock()
+	for _, user := range um.users {
+		for _, identity := range user.Identities {
+			if strings.ToLower(identity.Provider) == provider && identity.Subject == subject {
+				return user
+			}
+		}
+	}
+	return nil
+}
+
+// GetUserByVerifiedEmail gets a user by email when the stored account email matches.
+func (um *UserManager) GetUserByVerifiedEmail(email string) *models.User {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return nil
+	}
+
+	um.mutex.RLock()
+	defer um.mutex.RUnlock()
+	for _, user := range um.users {
+		if strings.ToLower(strings.TrimSpace(user.Email)) == email {
 			return user
 		}
 	}
@@ -355,9 +475,74 @@ func (um *UserManager) ValidateCredentials(username, password string) (*models.U
 		return nil, errors.New("user account is disabled")
 	}
 
+	if user.Password == "" {
+		return nil, errors.New("local password login is not enabled for this account")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return nil, errors.New("invalid username or password")
 	}
 
 	return user, nil
+}
+
+func normalizeExternalIdentity(identity ExternalIdentity) ExternalIdentity {
+	identity.Provider = strings.ToLower(strings.TrimSpace(identity.Provider))
+	identity.Subject = strings.TrimSpace(identity.Subject)
+	identity.Email = strings.ToLower(strings.TrimSpace(identity.Email))
+	identity.Username = strings.TrimSpace(identity.Username)
+	identity.DisplayName = strings.TrimSpace(identity.DisplayName)
+	identity.AvatarURL = strings.TrimSpace(identity.AvatarURL)
+	return identity
+}
+
+func validateExternalIdentity(identity ExternalIdentity) error {
+	if identity.Provider == "" {
+		return errors.New("identity provider cannot be empty")
+	}
+	if identity.Subject == "" {
+		return errors.New("identity subject cannot be empty")
+	}
+	if identity.Email == "" {
+		return errors.New("identity email cannot be empty")
+	}
+	if !identity.EmailVerified {
+		return errors.New("identity email must be verified")
+	}
+	return nil
+}
+
+func sameExternalIdentity(left, right ExternalIdentity) bool {
+	return strings.EqualFold(left.Provider, right.Provider) && left.Subject == right.Subject
+}
+
+func (um *UserManager) uniqueExternalUsername(identity ExternalIdentity) string {
+	base := identity.Username
+	if base == "" && identity.Email != "" {
+		base = strings.Split(identity.Email, "@")[0]
+	}
+	if base == "" {
+		base = identity.Provider + "-" + identity.Subject
+	}
+	base = sanitizeUsername(base)
+	if base == "" {
+		base = "user"
+	}
+
+	candidate := base
+	for suffix := 1; um.GetUserByUsername(candidate) != nil; suffix++ {
+		candidate = fmt.Sprintf("%s-%d", base, suffix)
+	}
+	return candidate
+}
+
+var usernameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+
+func sanitizeUsername(username string) string {
+	username = strings.Trim(usernameSanitizer.ReplaceAllString(username, "-"), ".-_")
+	if len(username) > 64 {
+		username = username[:64]
+		username = strings.Trim(username, ".-_")
+	}
+	return username
 }

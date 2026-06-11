@@ -58,6 +58,37 @@ export class Auth {
         return data.user;
     }
 
+    static async getAuthProviders() {
+        const response = await fetch('/api/auth/providers');
+        if (!response.ok) {
+            return [];
+        }
+
+        const data = await response.json().catch(() => ({ providers: [] }));
+        return data.providers || [];
+    }
+
+    static startOAuthLogin(provider) {
+        window.location.href = `/api/auth/oauth/${provider}/start`;
+    }
+
+    static async completeOAuthLogin() {
+        const response = await fetch('/api/auth/oauth/complete', {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: 'OAuth login failed' }));
+            throw new Error(error.error || 'OAuth login failed');
+        }
+
+        const data = await response.json();
+        this.setToken(data.token);
+        this.setTokenExpiry(data.expiresAt);
+        this.setCurrentUser(data.user);
+        return data.user;
+    }
+
     static async logout() {
         const token = this.getToken();
         try {

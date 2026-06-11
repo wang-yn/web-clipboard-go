@@ -331,6 +331,39 @@ static async completeOAuthLogin() {
 10. 补充单元测试、handler 测试和静态前端契约测试。
 11. 执行 `make test` 验证。
 
+## 当前实现说明
+
+本方案已按应用内 OAuth/OIDC 适配层落地：
+
+- 后端新增 `OAuthService`，负责 provider 列表、state、PKCE、nonce、handoff 和本地 session 创建。
+- 后端新增 `ExternalIdentity`，本地用户可通过 `identities` 绑定第三方身份。
+- Google 使用 OIDC ID token 校验，GitHub 使用 `/user` 和 `/user/emails` 获取身份与已验证邮箱。
+- OAuth callback 不在 URL 中暴露本地 token，而是通过短期 HttpOnly `oauth_handoff` cookie 完成登录交接。
+- 前端登录页通过 `/api/auth/providers` 动态显示启用的 provider。
+- 前端在 `/login.html?oauth=complete` 回跳后调用 `/api/auth/oauth/complete`，再复用现有 `localStorage` token 流程。
+
+已实现配置项：
+
+```text
+APP_BASE_URL=https://clipboard.example.com
+OAUTH_AUTO_PROVISION=false
+OAUTH_ALLOWED_EMAIL_DOMAINS=example.com,example.org
+GOOGLE_OAUTH_ENABLED=true
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GITHUB_OAUTH_ENABLED=true
+GITHUB_OAUTH_CLIENT_ID=...
+GITHUB_OAUTH_CLIENT_SECRET=...
+```
+
+测试覆盖：
+
+- 外部用户创建、身份查找和本地密码登录拒绝。
+- 重复 provider subject 绑定拒绝。
+- OAuth 自动创建用户、本地 session 创建、email 冲突拒绝和 handoff 一次性消费。
+- OAuth handler provider 列表、start 跳转和 complete 响应。
+- 前端和后端 OAuth 路由/入口静态契约。
+
 ## 取舍说明
 
 本方案选择应用内 OAuth/OIDC 接入，而不是反向代理统一登录，原因是：
