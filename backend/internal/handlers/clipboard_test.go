@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"web-clipboard-go/backend/internal/models"
+	"web-clipboard-go/backend/internal/services"
 )
 
 type allowSecurityService struct{}
@@ -129,5 +131,86 @@ func TestListRecentItemsShowsCurrentUsersUnexpiredItemsAcrossSessions(t *testing
 		if item.ID == "other" || item.ID == "expired" {
 			t.Fatalf("unexpected item in current-user recent list: %#v", item)
 		}
+	}
+}
+
+func TestSaveTextUsesConfiguredClipboardExpiration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	settingsService, err := services.NewSettingsService(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := settingsService.GetSettings()
+	settings.Clipboard.ExpirationValue = 2
+	settings.Clipboard.ExpirationUnit = models.ClipboardExpirationUnitHour
+	if err := settingsService.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	app := &models.App{
+		ClipboardData:   map[string]*models.ClipboardItem{},
+		DataMutex:       &sync.RWMutex{},
+		Security:        allowSecurityService{},
+		SettingsService: settingsService,
+	}
+	handler := &Handler{App: app}
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest("POST", "/api/text", strings.NewReader(`{"content":"hello"}`))
+	context.Request.Header.Set("Content-Type", "application/json")
+	context.Set("user", &models.User{ID: "user-1", Username: "same-user"})
+
+	before := time.Now().UTC()
+	handler.SaveText(context)
+	after := time.Now().UTC()
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	for _, item := range app.ClipboardData {
+		min := before.Add(2 * time.Hour)
+		max := after.Add(2 * time.Hour)
+		if item.ExpiresAt.Before(min) || item.ExpiresAt.After(max) {
+			t.Fatalf("item expiration %v outside configured range %v..%v", item.ExpiresAt, min, max)
+		}
+		return
+	}
+	t.Fatal("saved text item missing")
+}
+
+func TestCleanupKeepsNeverExpiringItems(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Now().UTC()
+	app := &models.App{
+		ClipboardData: map[string]*models.ClipboardItem{
+			"never": {
+				ID:        "never",
+				Type:      "text",
+				UserID:    "user-1",
+				Content:   "keep",
+				ExpiresAt: time.Time{},
+			},
+			"expired": {
+				ID:        "expired",
+				Type:      "text",
+				UserID:    "user-1",
+				Content:   "remove",
+				ExpiresAt: now.Add(-time.Minute),
+			},
+		},
+		DataMutex: &sync.RWMutex{},
+		Security:  allowSecurityService{},
+	}
+	handler := &Handler{App: app}
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest("GET", "/api/cleanup", nil)
+
+	handler.Cleanup(context)
+
+	if _, exists := app.ClipboardData["never"]; !exists {
+		t.Fatal("never-expiring item should remain after cleanup")
+	}
+	if _, exists := app.ClipboardData["expired"]; exists {
+		t.Fatal("expired item should be removed by cleanup")
 	}
 }

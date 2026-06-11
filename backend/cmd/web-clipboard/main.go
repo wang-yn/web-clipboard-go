@@ -25,17 +25,22 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize user manager:", err)
 	}
+	settingsService, err := services.NewSettingsService(getDataDir())
+	if err != nil {
+		log.Fatal("Failed to initialize settings service:", err)
+	}
 	authService := services.NewAuthService(userManager)
 
 	app := &models.App{
-		ClipboardData: make(map[string]*models.ClipboardItem),
-		DataMutex:     &sync.RWMutex{},
-		TempDir:       getTempDir(),
-		Security:      services.NewSecurityService(),
-		RateLimiter:   services.NewRateLimitService(),
-		UserManager:   userManager,
-		AuthService:   authService,
-		OAuthService:  services.NewOAuthServiceFromEnv(userManager, authService),
+		ClipboardData:   make(map[string]*models.ClipboardItem),
+		DataMutex:       &sync.RWMutex{},
+		TempDir:         getTempDir(),
+		Security:        services.NewSecurityService(),
+		RateLimiter:     services.NewRateLimitService(),
+		UserManager:     userManager,
+		AuthService:     authService,
+		SettingsService: settingsService,
+		OAuthService:    services.NewOAuthServiceFromSettings(userManager, authService, settingsService),
 	}
 
 	initTempDir(app.TempDir)
@@ -107,6 +112,8 @@ func setupRouter(app *models.App) *gin.Engine {
 		api.GET("/items", handler.ListRecentItems)
 		api.DELETE("/:id", handler.DeleteItem)
 		api.PUT("/users/:id/password", handler.ChangeUserPassword)
+		api.GET("/settings", middleware.AdminMiddleware(app), handler.GetSettings)
+		api.PUT("/settings", middleware.AdminMiddleware(app), handler.UpdateSettings)
 	}
 
 	// Admin-only endpoints
@@ -186,7 +193,7 @@ func performCleanup(app *models.App) {
 
 	app.DataMutex.Lock()
 	for id, item := range app.ClipboardData {
-		if item.ExpiresAt.Before(now) {
+		if models.ClipboardItemExpired(item, now) {
 			if item.Type == "file" && item.FilePath != "" {
 				os.Remove(item.FilePath)
 			}

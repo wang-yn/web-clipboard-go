@@ -165,6 +165,35 @@ func TestOAuthHandoffCanOnlyBeCompletedOnce(t *testing.T) {
 	}
 }
 
+func TestOAuthServiceListsOnlyEnabledAndCompleteProvidersFromSettings(t *testing.T) {
+	t.Setenv("APP_BASE_URL", "https://clipboard.example.com")
+
+	manager, err := NewUserManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsService, err := NewSettingsService(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := settingsService.GetSettings()
+	settings.Auth.Google.Enabled = true
+	settings.Auth.Google.ClientID = "google-client"
+	settings.Auth.Google.ClientSecret = "google-secret"
+	settings.Auth.GitHub.Enabled = true
+	settings.Auth.GitHub.ClientID = "github-client"
+	settings.Auth.GitHub.ClientSecret = ""
+	if err := settingsService.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+
+	oauthService := NewOAuthServiceFromSettings(manager, NewAuthService(manager), settingsService)
+	providers := oauthService.ListProviders()
+	if len(providers) != 1 || providers[0].Name != "google" {
+		t.Fatalf("expected only complete google provider, got %#v", providers)
+	}
+}
+
 func mustQueryParam(t *testing.T, rawURL, name string) string {
 	t.Helper()
 	parsed, err := url.Parse(rawURL)

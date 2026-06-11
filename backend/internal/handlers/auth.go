@@ -15,6 +15,11 @@ type Handler struct {
 
 // login handles user login
 func (h *Handler) Login(c *gin.Context) {
+	if h.App.SettingsService != nil && !h.App.SettingsService.GetSettings().Auth.PasswordLoginEnabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Password login is disabled"})
+		return
+	}
+
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
@@ -83,12 +88,22 @@ func (h *Handler) GetCurrentUser(c *gin.Context) {
 
 // ListAuthProviders returns enabled third-party login providers.
 func (h *Handler) ListAuthProviders(c *gin.Context) {
+	passwordLoginEnabled := true
+	if h.App.SettingsService != nil {
+		passwordLoginEnabled = h.App.SettingsService.GetSettings().Auth.PasswordLoginEnabled
+	}
 	if h.App.OAuthService == nil {
-		c.JSON(http.StatusOK, gin.H{"providers": []models.AuthProviderResponse{}})
+		c.JSON(http.StatusOK, models.AuthProvidersResponse{
+			Providers:            []models.AuthProviderResponse{},
+			PasswordLoginEnabled: passwordLoginEnabled,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"providers": h.App.OAuthService.ListProviders()})
+	c.JSON(http.StatusOK, models.AuthProvidersResponse{
+		Providers:            h.App.OAuthService.ListProviders(),
+		PasswordLoginEnabled: passwordLoginEnabled,
+	})
 }
 
 // StartOAuthLogin redirects the browser to a third-party authorization page.

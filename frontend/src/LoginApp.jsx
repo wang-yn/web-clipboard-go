@@ -18,6 +18,7 @@ export function LoginApp() {
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [authProviders, setAuthProviders] = useState([]);
+    const [passwordLoginEnabled, setPasswordLoginEnabled] = useState(true);
     const [message, setMessage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [oauthLoading, setOauthLoading] = useState(null);
@@ -54,8 +55,9 @@ export function LoginApp() {
     }, []);
 
     async function loadAuthProviders() {
-        const providers = await Auth.getAuthProviders();
-        setAuthProviders(providers);
+        const data = await Auth.getAuthProviders();
+        setAuthProviders(data.providers || []);
+        setPasswordLoginEnabled(data.passwordLoginEnabled !== false);
     }
 
     async function submit(event) {
@@ -86,7 +88,7 @@ export function LoginApp() {
         e('section', { className: 'w-full max-w-md bg-white rounded-lg shadow-md p-8' },
             e('h1', { className: 'text-3xl font-bold text-center text-gray-800 mb-2' }, 'Web Clipboard'),
             e('p', { className: 'text-center text-gray-600 mb-8' }, i18n.t('login-title')),
-            e('form', { className: 'space-y-4', onSubmit: submit },
+            passwordLoginEnabled && e('form', { className: 'space-y-4', onSubmit: submit },
                 e('label', { className: 'block' },
                     e('span', { className: 'block text-sm font-medium text-gray-700 mb-1' }, i18n.t('username')),
                     e('input', {

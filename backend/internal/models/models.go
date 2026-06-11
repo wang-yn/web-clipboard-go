@@ -9,17 +9,25 @@ import (
 
 const OAuthHandoffCookieName = "oauth_handoff"
 
+const (
+	ClipboardExpirationUnitMinute = "minute"
+	ClipboardExpirationUnitHour   = "hour"
+	ClipboardExpirationUnitDay    = "day"
+	ClipboardExpirationUnitNever  = "never"
+)
+
 // App represents the application state
 type App struct {
-	ClipboardData map[string]*ClipboardItem
-	DataMutex     *sync.RWMutex
-	TempDir       string
-	RateLimiter   RateLimiter
-	Security      SecurityService
-	CleanupTicker *time.Ticker
-	UserManager   UserManager
-	AuthService   AuthService
-	OAuthService  OAuthService
+	ClipboardData   map[string]*ClipboardItem
+	DataMutex       *sync.RWMutex
+	TempDir         string
+	RateLimiter     RateLimiter
+	Security        SecurityService
+	CleanupTicker   *time.Ticker
+	UserManager     UserManager
+	AuthService     AuthService
+	OAuthService    OAuthService
+	SettingsService SettingsService
 }
 
 // ClipboardItem represents a clipboard entry (text or file)
@@ -34,6 +42,34 @@ type ClipboardItem struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 }
+
+type SystemSettings struct {
+	Auth      AuthSettings      `json:"auth"`
+	Clipboard ClipboardSettings `json:"clipboard"`
+}
+
+type AuthSettings struct {
+	PasswordLoginEnabled bool                `json:"passwordLoginEnabled"`
+	OAuthAutoProvision   bool                `json:"oauthAutoProvision"`
+	AllowedEmailDomains  []string            `json:"allowedEmailDomains"`
+	Google               OAuthProviderConfig `json:"google"`
+	GitHub               OAuthProviderConfig `json:"github"`
+}
+
+type OAuthProviderConfig struct {
+	Enabled           bool   `json:"enabled"`
+	ClientID          string `json:"clientId"`
+	ClientSecret      string `json:"clientSecret,omitempty"`
+	ClientSecretSet   bool   `json:"clientSecretSet,omitempty"`
+	ClearClientSecret bool   `json:"clearClientSecret,omitempty"`
+}
+
+type ClipboardSettings struct {
+	ExpirationValue int    `json:"expirationValue"`
+	ExpirationUnit  string `json:"expirationUnit"`
+}
+
+type SystemSettingsResponse = SystemSettings
 
 // User represents a user account
 type User struct {
@@ -140,6 +176,11 @@ type AuthProviderResponse struct {
 	DisplayName string `json:"displayName"`
 }
 
+type AuthProvidersResponse struct {
+	Providers            []AuthProviderResponse `json:"providers"`
+	PasswordLoginEnabled bool                   `json:"passwordLoginEnabled"`
+}
+
 // Request types for user management
 type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"`
@@ -173,6 +214,12 @@ type UserManager interface {
 	ChangePassword(id, newPassword string) error
 	DeleteUser(id string) error
 	ValidateCredentials(username, password string) (*User, error)
+}
+
+type SettingsService interface {
+	GetSettings() SystemSettings
+	GetSettingsResponse() SystemSettingsResponse
+	SaveSettings(settings SystemSettings) error
 }
 
 type AuthService interface {
@@ -230,4 +277,41 @@ func ToUserResponse(user *User) UserResponse {
 		UpdatedAt: user.UpdatedAt,
 		IsActive:  user.IsActive,
 	}
+}
+
+func DefaultSystemSettings() SystemSettings {
+	return SystemSettings{
+		Auth: AuthSettings{
+			PasswordLoginEnabled: true,
+			AllowedEmailDomains:  []string{},
+		},
+		Clipboard: ClipboardSettings{
+			ExpirationValue: 10,
+			ExpirationUnit:  ClipboardExpirationUnitMinute,
+		},
+	}
+}
+
+func (settings ClipboardSettings) ExpiresAt(now time.Time) time.Time {
+	value := settings.ExpirationValue
+	if value <= 0 {
+		value = 10
+	}
+	switch settings.ExpirationUnit {
+	case ClipboardExpirationUnitNever:
+		return time.Time{}
+	case ClipboardExpirationUnitHour:
+		return now.Add(time.Duration(value) * time.Hour)
+	case ClipboardExpirationUnitDay:
+		return now.Add(time.Duration(value) * 24 * time.Hour)
+	default:
+		return now.Add(time.Duration(value) * time.Minute)
+	}
+}
+
+func ClipboardItemExpired(item *ClipboardItem, now time.Time) bool {
+	if item == nil || item.ExpiresAt.IsZero() {
+		return false
+	}
+	return item.ExpiresAt.Before(now)
 }

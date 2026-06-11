@@ -41,13 +41,14 @@ type OAuthProvider interface {
 }
 
 type OAuthService struct {
-	userManager *UserManager
-	authService *AuthService
-	settings    OAuthSettings
-	providers   map[string]OAuthProvider
-	states      map[string]oauthState
-	handoffs    map[string]oauthHandoff
-	mutex       sync.Mutex
+	userManager     *UserManager
+	authService     *AuthService
+	settings        OAuthSettings
+	settingsService *SettingsService
+	providers       map[string]OAuthProvider
+	states          map[string]oauthState
+	handoffs        map[string]oauthHandoff
+	mutex           sync.Mutex
 }
 
 type oauthState struct {
@@ -121,6 +122,12 @@ func NewOAuthServiceFromEnv(userManager *UserManager, authService *AuthService) 
 	return NewOAuthService(userManager, authService, settings, providers)
 }
 
+func NewOAuthServiceFromSettings(userManager *UserManager, authService *AuthService, settingsService *SettingsService) *OAuthService {
+	service := NewOAuthService(userManager, authService, OAuthSettings{}, nil)
+	service.settingsService = settingsService
+	return service
+}
+
 func NewGoogleProviderFromEnv(baseURL string) OAuthProvider {
 	clientID := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID"))
 	clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"))
@@ -128,6 +135,33 @@ func NewGoogleProviderFromEnv(baseURL string) OAuthProvider {
 		return nil
 	}
 
+	return &GoogleProvider{
+		name:        "google",
+		displayName: "Google",
+		clientID:    clientID,
+		issuer:      "https://accounts.google.com",
+		config: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
+				TokenURL: "https://oauth2.googleapis.com/token",
+			},
+			RedirectURL: buildOAuthRedirectURL(baseURL, "google"),
+			Scopes:      []string{"openid", "email", "profile"},
+		},
+	}
+}
+
+func NewGoogleProvider(config models.OAuthProviderConfig, baseURL string) OAuthProvider {
+	if strings.TrimSpace(baseURL) == "" {
+		return nil
+	}
+	clientID := strings.TrimSpace(config.ClientID)
+	clientSecret := strings.TrimSpace(config.ClientSecret)
+	if clientID == "" || clientSecret == "" {
+		return nil
+	}
 	return &GoogleProvider{
 		name:        "google",
 		displayName: "Google",
@@ -170,10 +204,51 @@ func NewGitHubProviderFromEnv(baseURL string) OAuthProvider {
 	}
 }
 
+func NewGitHubProvider(config models.OAuthProviderConfig, baseURL string) OAuthProvider {
+	if strings.TrimSpace(baseURL) == "" {
+		return nil
+	}
+	clientID := strings.TrimSpace(config.ClientID)
+	clientSecret := strings.TrimSpace(config.ClientSecret)
+	if clientID == "" || clientSecret == "" {
+		return nil
+	}
+	return &GitHubProvider{
+		name:        "github",
+		displayName: "GitHub",
+		apiBaseURL:  "https://api.github.com",
+		config: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "https://github.com/login/oauth/authorize",
+				TokenURL: "https://github.com/login/oauth/access_token",
+			},
+			RedirectURL: buildOAuthRedirectURL(baseURL, "github"),
+			Scopes:      []string{"read:user", "user:email"},
+		},
+	}
+}
+
 func (s *OAuthService) ListProviders() []models.AuthProviderResponse {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.cleanupLocked(time.Now().UTC())
+
+	if s.settingsService != nil {
+		providers := s.providersFromSettings()
+		responses := make([]models.AuthProviderResponse, 0, len(providers))
+		for _, provider := range providers {
+			responses = append(responses, models.AuthProviderResponse{
+				Name:        provider.Name(),
+				DisplayName: provider.DisplayName(),
+			})
+		}
+		sort.Slice(responses, func(i, j int) bool {
+			return responses[i].Name < responses[j].Name
+		})
+		return responses
+	}
 
 	providers := make([]models.AuthProviderResponse, 0, len(s.providers))
 	for _, provider := range s.providers {
@@ -321,6 +396,11 @@ func (s *OAuthService) resolveLocalUser(identity ExternalIdentity) (*models.User
 	if err := validateExternalIdentity(identity); err != nil {
 		return nil, err
 	}
+	if s.settingsService != nil {
+		settings := s.settingsService.GetSettings()
+		s.settings.AutoProvision = settings.Auth.OAuthAutoProvision
+		s.settings.AllowedEmailDomains = normalizeDomains(settings.Auth.AllowedEmailDomains)
+	}
 	if !s.emailDomainAllowed(identity.Email) {
 		return nil, errors.New("email domain is not allowed")
 	}
@@ -350,12 +430,43 @@ func (s *OAuthService) getProvider(providerName string) (OAuthProvider, error) {
 	}
 
 	s.mutex.Lock()
-	provider := s.providers[providerName]
+	providers := s.providers
+	if s.settingsService != nil {
+		providers = s.providersFromSettings()
+	}
+	provider := providers[providerName]
 	s.mutex.Unlock()
 	if provider == nil {
 		return nil, errors.New("oauth provider is not enabled")
 	}
 	return provider, nil
+}
+
+func (s *OAuthService) providersFromSettings() map[string]OAuthProvider {
+	settings := s.settingsService.GetSettings()
+	s.settings = OAuthSettings{
+		BaseURL:             strings.TrimSpace(os.Getenv("APP_BASE_URL")),
+		AutoProvision:       settings.Auth.OAuthAutoProvision,
+		AllowedEmailDomains: settings.Auth.AllowedEmailDomains,
+	}
+	providers := make(map[string]OAuthProvider)
+	if oauthProviderConfigured(settings.Auth.Google) {
+		if provider := NewGoogleProvider(settings.Auth.Google, s.settings.BaseURL); provider != nil {
+			providers["google"] = provider
+		}
+	}
+	if oauthProviderConfigured(settings.Auth.GitHub) {
+		if provider := NewGitHubProvider(settings.Auth.GitHub, s.settings.BaseURL); provider != nil {
+			providers["github"] = provider
+		}
+	}
+	return providers
+}
+
+func oauthProviderConfigured(provider models.OAuthProviderConfig) bool {
+	return provider.Enabled &&
+		strings.TrimSpace(provider.ClientID) != "" &&
+		strings.TrimSpace(provider.ClientSecret) != ""
 }
 
 func (s *OAuthService) emailDomainAllowed(email string) bool {

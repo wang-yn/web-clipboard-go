@@ -439,3 +439,42 @@ func TestOAuthRoutesAndLoginEntryPointsExist(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsPageProvidesSystemSettingsForm(t *testing.T) {
+	settings := readFrontendFile(t, "frontend/src/settings.jsx")
+	auth := readFrontendFile(t, "frontend/src/auth.js")
+	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
+
+	for _, required := range []string{
+		"function SystemSettings(",
+		"passwordLoginEnabled",
+		"google",
+		"github",
+		"expirationValue",
+		"expirationUnit",
+		"never",
+	} {
+		if !strings.Contains(settings, required) {
+			t.Fatalf("settings page system form missing: %s", required)
+		}
+	}
+
+	for _, required := range []string{
+		"getSettings(",
+		"updateSettings(",
+		"'/api/settings'",
+	} {
+		if !strings.Contains(auth, required) {
+			t.Fatalf("auth settings helper missing: %s", required)
+		}
+	}
+
+	for _, required := range []string{
+		`api.GET("/settings", middleware.AdminMiddleware(app), handler.GetSettings)`,
+		`api.PUT("/settings", middleware.AdminMiddleware(app), handler.UpdateSettings)`,
+	} {
+		if !strings.Contains(main, required) {
+			t.Fatalf("settings API route missing: %s", required)
+		}
+	}
+}

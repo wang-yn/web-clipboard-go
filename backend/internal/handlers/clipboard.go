@@ -32,13 +32,14 @@ func (h *Handler) SaveText(c *gin.Context) {
 
 	id := h.generateShortID()
 	user := c.MustGet("user").(*models.User)
+	createdAt := time.Now().UTC()
 	item := &models.ClipboardItem{
 		ID:        id,
 		Type:      "text",
 		UserID:    user.ID,
 		Content:   request.Content,
-		CreatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+		CreatedAt: createdAt,
+		ExpiresAt: h.clipboardExpiresAt(createdAt),
 	}
 
 	h.App.DataMutex.Lock()
@@ -64,7 +65,7 @@ func (h *Handler) GetText(c *gin.Context) {
 	item, exists := h.App.ClipboardData[id]
 	h.App.DataMutex.RUnlock()
 
-	if !exists || item.Type != "text" || item.ExpiresAt.Before(time.Now().UTC()) {
+	if !exists || item.Type != "text" || models.ClipboardItemExpired(item, time.Now().UTC()) {
 		h.App.Security.LogAccess(c, id, "text", false)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found or expired"})
 		return
@@ -118,6 +119,7 @@ func (h *Handler) SaveFile(c *gin.Context) {
 		return
 	}
 
+	createdAt := time.Now().UTC()
 	item := &models.ClipboardItem{
 		ID:          id,
 		Type:        "file",
@@ -125,8 +127,8 @@ func (h *Handler) SaveFile(c *gin.Context) {
 		FileName:    header.Filename,
 		FilePath:    filePath,
 		ContentType: header.Header.Get("Content-Type"),
-		CreatedAt:   time.Now().UTC(),
-		ExpiresAt:   time.Now().UTC().Add(10 * time.Minute),
+		CreatedAt:   createdAt,
+		ExpiresAt:   h.clipboardExpiresAt(createdAt),
 	}
 
 	h.App.DataMutex.Lock()
@@ -148,7 +150,7 @@ func (h *Handler) ListRecentItems(c *gin.Context) {
 
 	h.App.DataMutex.RLock()
 	for _, item := range h.App.ClipboardData {
-		if item.UserID != user.ID || item.ExpiresAt.Before(now) {
+		if item.UserID != user.ID || models.ClipboardItemExpired(item, now) {
 			continue
 		}
 		items = append(items, toRecentItemResponse(item))
@@ -201,7 +203,7 @@ func (h *Handler) GetFile(c *gin.Context) {
 	item, exists := h.App.ClipboardData[id]
 	h.App.DataMutex.RUnlock()
 
-	if !exists || item.Type != "file" || item.ExpiresAt.Before(time.Now().UTC()) {
+	if !exists || item.Type != "file" || models.ClipboardItemExpired(item, time.Now().UTC()) {
 		h.App.Security.LogAccess(c, id, "file", false)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found or expired"})
 		return
@@ -274,7 +276,7 @@ func (h *Handler) Cleanup(c *gin.Context) {
 
 	h.App.DataMutex.Lock()
 	for id, item := range h.App.ClipboardData {
-		if item.ExpiresAt.Before(now) {
+		if models.ClipboardItemExpired(item, now) {
 			if item.Type == "file" && item.FilePath != "" {
 				os.Remove(item.FilePath)
 			}
@@ -306,6 +308,14 @@ func (h *Handler) generateShortID() string {
 
 	id, _ := generateRandomString(6)
 	return id
+}
+
+func (h *Handler) clipboardExpiresAt(now time.Time) time.Time {
+	settings := models.DefaultSystemSettings()
+	if h.App.SettingsService != nil {
+		settings = h.App.SettingsService.GetSettings()
+	}
+	return settings.Clipboard.ExpiresAt(now)
 }
 
 // generateRandomString generates a random alphanumeric string

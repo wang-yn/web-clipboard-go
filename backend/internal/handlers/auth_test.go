@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"web-clipboard-go/backend/internal/models"
+	"web-clipboard-go/backend/internal/services"
 )
 
 type fakeHandlerOAuthService struct{}
@@ -113,5 +115,40 @@ func TestCompleteOAuthLoginReturnsLoginResponseAndClearsHandoff(t *testing.T) {
 	cookies := recorder.Result().Cookies()
 	if len(cookies) == 0 || cookies[0].Name != models.OAuthHandoffCookieName || cookies[0].MaxAge >= 0 {
 		t.Fatalf("OAuth handoff cookie was not cleared: %#v", cookies)
+	}
+}
+
+func TestLoginRejectsPasswordWhenPasswordLoginDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	settingsService, err := services.NewSettingsService(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := settingsService.GetSettings()
+	settings.Auth.PasswordLoginEnabled = false
+	settings.Auth.Google.Enabled = true
+	settings.Auth.Google.ClientID = "google-client"
+	settings.Auth.Google.ClientSecret = "google-secret"
+	if err := settingsService.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	userManager, err := services.NewUserManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := &Handler{App: &models.App{
+		UserManager:     userManager,
+		AuthService:     services.NewAuthService(userManager),
+		SettingsService: settingsService,
+	}}
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"admin","password":"admin123"}`))
+	context.Request.Header.Set("Content-Type", "application/json")
+
+	handler.Login(context)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 when password login disabled, got %d: %s", recorder.Code, recorder.Body.String())
 	}
 }

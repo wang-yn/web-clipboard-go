@@ -61,11 +61,10 @@ export class Auth {
     static async getAuthProviders() {
         const response = await fetch('/api/auth/providers');
         if (!response.ok) {
-            return [];
+            return { providers: [], passwordLoginEnabled: true };
         }
 
-        const data = await response.json().catch(() => ({ providers: [] }));
-        return data.providers || [];
+        return response.json().catch(() => ({ providers: [], passwordLoginEnabled: true }));
     }
 
     static startOAuthLogin(provider) {
@@ -198,6 +197,17 @@ export class Auth {
         return this.json(`/api/users/${userId}/password`, {
             method: 'PUT',
             body: JSON.stringify({ newPassword })
+        });
+    }
+
+    static async getSettings() {
+        return this.json('/api/settings');
+    }
+
+    static async updateSettings(settings) {
+        return this.json('/api/settings', {
+            method: 'PUT',
+            body: JSON.stringify(settings)
         });
     }
 }
