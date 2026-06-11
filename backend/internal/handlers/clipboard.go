@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,9 +31,11 @@ func (h *Handler) SaveText(c *gin.Context) {
 	}
 
 	id := h.generateShortID()
+	user := c.MustGet("user").(*models.User)
 	item := &models.ClipboardItem{
 		ID:        id,
 		Type:      "text",
+		UserID:    user.ID,
 		Content:   request.Content,
 		CreatedAt: time.Now().UTC(),
 		ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
@@ -99,6 +102,7 @@ func (h *Handler) SaveFile(c *gin.Context) {
 	}
 
 	id := h.generateShortID()
+	user := c.MustGet("user").(*models.User)
 	filePath := filepath.Join(h.App.TempDir, fmt.Sprintf("%s_%s", id, header.Filename))
 
 	dst, err := os.Create(filePath)
@@ -117,6 +121,7 @@ func (h *Handler) SaveFile(c *gin.Context) {
 	item := &models.ClipboardItem{
 		ID:          id,
 		Type:        "file",
+		UserID:      user.ID,
 		FileName:    header.Filename,
 		FilePath:    filePath,
 		ContentType: header.Header.Get("Content-Type"),
@@ -133,6 +138,54 @@ func (h *Handler) SaveFile(c *gin.Context) {
 		FileName:  header.Filename,
 		ExpiresAt: item.ExpiresAt,
 	})
+}
+
+// ListRecentItems returns the current user's unexpired clipboard items.
+func (h *Handler) ListRecentItems(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	now := time.Now().UTC()
+	items := make([]models.RecentItemResponse, 0)
+
+	h.App.DataMutex.RLock()
+	for _, item := range h.App.ClipboardData {
+		if item.UserID != user.ID || item.ExpiresAt.Before(now) {
+			continue
+		}
+		items = append(items, toRecentItemResponse(item))
+	}
+	h.App.DataMutex.RUnlock()
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > 10 {
+		items = items[:10]
+	}
+
+	c.JSON(http.StatusOK, models.ListRecentItemsResponse{Items: items})
+}
+
+func toRecentItemResponse(item *models.ClipboardItem) models.RecentItemResponse {
+	description := item.FileName
+	if item.Type == "text" {
+		description = textDescription(item.Content)
+	}
+	return models.RecentItemResponse{
+		ID:          item.ID,
+		Type:        item.Type,
+		Description: description,
+		FileName:    item.FileName,
+		CreatedAt:   item.CreatedAt,
+		ExpiresAt:   item.ExpiresAt,
+	}
+}
+
+func textDescription(content string) string {
+	content = strings.TrimSpace(content)
+	if len([]rune(content)) <= 50 {
+		return content
+	}
+	return string([]rune(content)[:50]) + "..."
 }
 
 // GetFile handles retrieving a file from clipboard

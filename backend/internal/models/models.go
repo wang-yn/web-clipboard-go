@@ -21,6 +21,7 @@ type App struct {
 type ClipboardItem struct {
 	ID          string    `json:"id"`
 	Type        string    `json:"type"`
+	UserID      string    `json:"userId"`
 	Content     string    `json:"content,omitempty"`
 	FileName    string    `json:"fileName,omitempty"`
 	FilePath    string    `json:"-"`
@@ -78,6 +79,19 @@ type SaveTextResponse struct {
 type GetTextResponse struct {
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type RecentItemResponse struct {
+	ID          string    `json:"id"`
+	Type        string    `json:"type"`
+	Description string    `json:"description"`
+	FileName    string    `json:"fileName,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+}
+
+type ListRecentItemsResponse struct {
+	Items []RecentItemResponse `json:"items"`
 }
 
 type SaveFileResponse struct {

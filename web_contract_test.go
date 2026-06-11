@@ -118,6 +118,26 @@ func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
 	}
 }
 
+func TestFrontendLoadsRecentItemsFromAuthenticatedAPI(t *testing.T) {
+	app := readFrontendFile(t, "frontend/src/App.jsx")
+	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
+
+	for _, required := range []string{"loadRecentItems(", "loadRecentItems(false)", "Auth.json('/api/items')", "setRecentItems(data.items || [])", "load-recent-failed"} {
+		if !strings.Contains(app+translations, required) {
+			t.Fatalf("server-backed recent items workflow missing: %s", required)
+		}
+	}
+	if !strings.Contains(main, `api.GET("/items", handler.ListRecentItems)`) {
+		t.Fatal("recent items route must be available to authenticated users")
+	}
+	for _, forbidden := range []string{"localStorage.getItem('recentItems')", "localStorage.setItem('recentItems'"} {
+		if strings.Contains(app, forbidden) {
+			t.Fatalf("recent items must not be isolated in browser localStorage: %s", forbidden)
+		}
+	}
+}
+
 func TestFrontendUsesIconsAndToastFeedback(t *testing.T) {
 	app := readFrontendFile(t, "frontend/src/App.jsx")
 	loginApp := readFrontendFile(t, "frontend/src/LoginApp.jsx")

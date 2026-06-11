@@ -98,6 +98,7 @@ func setupRouter(app *models.App) *gin.Engine {
 		api.GET("/text/:id", handler.GetText)
 		api.POST("/file", handler.SaveFile)
 		api.GET("/file/:id", handler.GetFile)
+		api.GET("/items", handler.ListRecentItems)
 		api.DELETE("/:id", handler.DeleteItem)
 		api.PUT("/users/:id/password", handler.ChangeUserPassword)
 	}
