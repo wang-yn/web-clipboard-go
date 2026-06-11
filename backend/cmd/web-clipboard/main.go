@@ -21,7 +21,7 @@ import (
 
 func main() {
 	// Initialize user manager
-	userManager, err := services.NewUserManager("./data")
+	userManager, err := services.NewUserManager(getDataDir())
 	if err != nil {
 		log.Fatal("Failed to initialize user manager:", err)
 	}
@@ -130,6 +130,9 @@ func setupRouter(app *models.App) *gin.Engine {
 	router.GET("/login.html", func(c *gin.Context) {
 		c.File("./frontend/dist/login.html")
 	})
+	router.GET("/settings.html", func(c *gin.Context) {
+		c.File("./frontend/dist/settings.html")
+	})
 	router.GET("/", func(c *gin.Context) {
 		c.File("./frontend/dist/index.html")
 	})
@@ -139,6 +142,13 @@ func setupRouter(app *models.App) *gin.Engine {
 
 func getTempDir() string {
 	return filepath.Join(os.TempDir(), "web-clipboard-go")
+}
+
+func getDataDir() string {
+	if value := os.Getenv("WEB_CLIPBOARD_DATA_DIR"); value != "" {
+		return value
+	}
+	return "/data"
 }
 
 func initTempDir(tempDir string) {
