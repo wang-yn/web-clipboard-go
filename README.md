@@ -63,12 +63,11 @@ go build -o bin/web-clipboard-go.exe ./backend/cmd/web-clipboard
 ./bin/web-clipboard-go.exe
 ```
 
-首次启动时会自动创建默认管理员账号：
+首次启动时会自动创建默认管理员账号，并在控制台输出初始随机密码：
 
 - Username: `admin`
-- Password: `admin123`
 
-首次登录后请立即修改默认密码。
+请妥善保存首次启动日志中的密码，并在首次登录后立即修改。
 
 ## API 端点
 

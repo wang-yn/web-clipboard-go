@@ -143,7 +143,7 @@ func TestLoginRejectsPasswordWhenPasswordLoginDisabled(t *testing.T) {
 	}}
 	recorder := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(recorder)
-	context.Request = httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"admin","password":"admin123"}`))
+	context.Request = httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBufferString(`{"username":"admin","password":"unused-password"}`))
 	context.Request.Header.Set("Content-Type", "application/json")
 
 	handler.Login(context)

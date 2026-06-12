@@ -149,11 +149,7 @@ export function LoginApp() {
                 className: `mt-4 p-3 rounded-lg text-sm ${message.type === 'success'
                     ? 'bg-green-100 text-green-700 border border-green-400'
                     : 'bg-red-100 text-red-700 border border-red-400'}`
-            }, message.text),
-            e('div', { className: 'mt-6 text-center text-sm text-gray-600' },
-                e('p', null, i18n.t('default-credentials')),
-                e('p', { className: 'font-mono text-xs mt-1' }, 'admin / admin123')
-            )
+            }, message.text)
         )
     );
 }

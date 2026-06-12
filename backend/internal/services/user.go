@@ -1,6 +1,8 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -101,7 +103,11 @@ func (um *UserManager) saveUsers() error {
 
 // createDefaultAdmin creates the default admin account
 func (um *UserManager) createDefaultAdmin() error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	initialPassword, err := generateInitialAdminPassword()
+	if err != nil {
+		return fmt.Errorf("failed to generate initial admin password: %w", err)
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(initialPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -128,11 +134,19 @@ func (um *UserManager) createDefaultAdmin() error {
 	fmt.Println("===========================================")
 	fmt.Println("Default admin account created:")
 	fmt.Println("  Username: admin")
-	fmt.Println("  Password: admin123")
+	fmt.Printf("  Password: %s\n", initialPassword)
 	fmt.Println("  Please change the password after first login!")
 	fmt.Println("===========================================")
 
 	return nil
+}
+
+func generateInitialAdminPassword() (string, error) {
+	data := make([]byte, 18)
+	if _, err := rand.Read(data); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(data), nil
 }
 
 // CreateUser creates a new user

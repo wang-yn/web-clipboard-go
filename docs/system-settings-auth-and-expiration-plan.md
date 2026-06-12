@@ -4,7 +4,7 @@
 
 在 `/settings.html` 的系统设置区域增加可持久化配置：
 
-- 常规密码登录开关。
+- 用户密码登录开关。
 - Google 登录开关及必要配置。
 - GitHub 登录开关及必要配置。
 - 剪贴板有效时间设置，默认 `10 分钟`，单位支持分钟、小时、天、永不过期。
@@ -153,7 +153,7 @@ func ClipboardItemExpired(item *ClipboardItem, now time.Time) bool
 
 系统设置区域包含：
 
-- 常规密码登录开关。
+- 用户密码登录开关。
 - 自动创建 OAuth 用户开关。
 - 允许邮箱域名输入框，逗号分隔。
 - Google 登录开关、Client ID、Client Secret。

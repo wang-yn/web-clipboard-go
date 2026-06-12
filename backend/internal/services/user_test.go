@@ -1,6 +1,41 @@
 package services
 
-import "testing"
+import (
+	"regexp"
+	"strings"
+	"testing"
+)
+
+func TestDefaultAdminUsesRandomInitialPassword(t *testing.T) {
+	manager, err := NewUserManager(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	admin := manager.GetUserByUsername("admin")
+	if admin == nil {
+		t.Fatal("default admin missing")
+	}
+	if _, err := manager.ValidateCredentials("admin", "admin123"); err == nil {
+		t.Fatal("default admin must not use the old fixed admin123 password")
+	}
+}
+
+func TestGenerateInitialAdminPasswordUsesConsoleSafeRandomFormat(t *testing.T) {
+	password, err := generateInitialAdminPassword()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(password) < 20 {
+		t.Fatalf("initial admin password is too short: %d", len(password))
+	}
+	if strings.ContainsAny(password, "\"'`\\") {
+		t.Fatalf("initial admin password contains shell-confusing characters: %q", password)
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(password) {
+		t.Fatalf("initial admin password should be URL-safe, got %q", password)
+	}
+}
 
 func TestUpdateUserRejectsDisablingLastActiveAdmin(t *testing.T) {
 	manager, err := NewUserManager(t.TempDir())

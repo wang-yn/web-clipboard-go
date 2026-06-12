@@ -440,6 +440,30 @@ func TestOAuthRoutesAndLoginEntryPointsExist(t *testing.T) {
 	}
 }
 
+func TestLoginPageDoesNotExposeDefaultCredentials(t *testing.T) {
+	loginApp := readFrontendFile(t, "frontend/src/LoginApp.jsx")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
+
+	for _, forbidden := range []string{"default-credentials", "admin / admin123", "Default credentials", "默认账号"} {
+		if strings.Contains(loginApp+translations, forbidden) {
+			t.Fatalf("login page must not expose default credentials: %s", forbidden)
+		}
+	}
+}
+
+func TestSettingsPageUsesUserPasswordLoginCopy(t *testing.T) {
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
+
+	for _, required := range []string{"'password-login-enabled': 'User password login'", "'password-login-enabled': '用户密码登录'"} {
+		if !strings.Contains(translations, required) {
+			t.Fatalf("settings page password login copy missing: %s", required)
+		}
+	}
+	if strings.Contains(translations, "常规密码登录") {
+		t.Fatal("settings page must not use old 常规密码登录 copy")
+	}
+}
+
 func TestSettingsPageProvidesSystemSettingsForm(t *testing.T) {
 	settings := readFrontendFile(t, "frontend/src/settings.jsx")
 	auth := readFrontendFile(t, "frontend/src/auth.js")
