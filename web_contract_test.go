@@ -149,6 +149,26 @@ func TestRecentItemPrimaryActionsCopyTextAndDownloadFiles(t *testing.T) {
 	}
 }
 
+func TestFrontendSupportsImagePreviewFromRecentFiles(t *testing.T) {
+	js := readFrontendFile(t, "frontend/src/App.jsx")
+	translations := readFrontendFile(t, "frontend/src/i18n.js")
+
+	for _, required := range []string{
+		"ImageIcon",
+		"isImageItem(",
+		"previewImage(",
+		"closeImagePreview(",
+		"item.contentType?.startsWith('image/')",
+		"URL.createObjectURL(blob)",
+		"item-action-preview-image",
+		"image-preview-title",
+	} {
+		if !strings.Contains(js+translations, required) {
+			t.Fatalf("image preview workflow missing: %s", required)
+		}
+	}
+}
+
 func TestFrontendLoadsRecentItemsFromAuthenticatedAPI(t *testing.T) {
 	app := readFrontendFile(t, "frontend/src/App.jsx")
 	main := readFrontendFile(t, "backend/cmd/web-clipboard/main.go")
@@ -193,9 +213,9 @@ func TestFrontendUsesIconsAndToastFeedback(t *testing.T) {
 		"} from 'lucide-react';",
 		"function IconLabel(",
 		"function RecentTypeIcon(",
-		"aria-label': type === 'text' ? 'Text item' : 'File item'",
-		"type === 'text' ? FileText : FileIcon",
-		"e(RecentTypeIcon, { type: item.type })",
+		"aria-label': type === 'text' ? 'Text item' : image ? 'Image item' : 'File item'",
+		"type === 'text' ? FileText : image ? ImageIcon : FileIcon",
+		"e(RecentTypeIcon, { type: item.type, contentType: item.contentType })",
 		"sr-only",
 	} {
 		if !strings.Contains(source, required) {

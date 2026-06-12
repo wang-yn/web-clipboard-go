@@ -140,6 +140,7 @@ type RecentItemResponse struct {
 	Type        string    `json:"type"`
 	Description string    `json:"description"`
 	FileName    string    `json:"fileName,omitempty"`
+	ContentType string    `json:"contentType,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	ExpiresAt   time.Time `json:"expiresAt"`
 }
@@ -149,9 +150,10 @@ type ListRecentItemsResponse struct {
 }
 
 type SaveFileResponse struct {
-	ID        string    `json:"id"`
-	FileName  string    `json:"fileName"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	ID          string    `json:"id"`
+	FileName    string    `json:"fileName"`
+	ContentType string    `json:"contentType,omitempty"`
+	ExpiresAt   time.Time `json:"expiresAt"`
 }
 
 type CleanupResponse struct {

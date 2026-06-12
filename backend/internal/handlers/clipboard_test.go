@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,6 +67,67 @@ func TestGetFileUsesRFC5987FilenameForUnicodeDownloads(t *testing.T) {
 	}
 }
 
+func TestSaveFileDetectsImageContentTypeFromFileContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", "photo.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	app := &models.App{
+		ClipboardData: map[string]*models.ClipboardItem{},
+		DataMutex:     &sync.RWMutex{},
+		TempDir:       t.TempDir(),
+		Security:      allowSecurityService{},
+	}
+	handler := &Handler{App: app}
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodPost, "/api/file", body)
+	context.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	context.Set("user", &models.User{ID: "user-1", Username: "same-user"})
+
+	handler.SaveFile(context)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response models.SaveFileResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.ContentType != "image/png" {
+		t.Fatalf("expected image/png response content type, got %#v", response)
+	}
+	for _, item := range app.ClipboardData {
+		if item.ContentType != "image/png" {
+			t.Fatalf("expected stored image/png content type, got %#v", item)
+		}
+		stored, err := os.Open(item.FilePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer stored.Close()
+		prefix := make([]byte, 8)
+		if _, err := io.ReadFull(stored, prefix); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(prefix, []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}) {
+			t.Fatalf("stored file did not preserve PNG prefix: %#v", prefix)
+		}
+		return
+	}
+	t.Fatal("saved file item missing")
+}
+
 func TestListRecentItemsShowsCurrentUsersUnexpiredItemsAcrossSessions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	now := time.Now().UTC()
@@ -78,12 +142,13 @@ func TestListRecentItemsShowsCurrentUsersUnexpiredItemsAcrossSessions(t *testing
 				ExpiresAt: now.Add(9 * time.Minute),
 			},
 			"same2": {
-				ID:        "same2",
-				Type:      "file",
-				UserID:    "user-1",
-				FileName:  "notes.txt",
-				CreatedAt: now.Add(-2 * time.Minute),
-				ExpiresAt: now.Add(8 * time.Minute),
+				ID:          "same2",
+				Type:        "file",
+				UserID:      "user-1",
+				FileName:    "photo.png",
+				ContentType: "image/png",
+				CreatedAt:   now.Add(-2 * time.Minute),
+				ExpiresAt:   now.Add(8 * time.Minute),
 			},
 			"other": {
 				ID:        "other",
@@ -126,6 +191,9 @@ func TestListRecentItemsShowsCurrentUsersUnexpiredItemsAcrossSessions(t *testing
 	}
 	if response.Items[0].ID != "same1" || response.Items[1].ID != "same2" {
 		t.Fatalf("expected current-user items newest first, got %#v", response.Items)
+	}
+	if response.Items[1].ContentType != "image/png" {
+		t.Fatalf("expected file content type in recent items, got %#v", response.Items[1])
 	}
 	for _, item := range response.Items {
 		if item.ID == "other" || item.ID == "expired" {

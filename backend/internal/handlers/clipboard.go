@@ -102,6 +102,12 @@ func (h *Handler) SaveFile(c *gin.Context) {
 		return
 	}
 
+	contentType, err := detectUploadedContentType(file, header.Header.Get("Content-Type"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to inspect file"})
+		return
+	}
+
 	id := h.generateShortID()
 	user := c.MustGet("user").(*models.User)
 	filePath := filepath.Join(h.App.TempDir, fmt.Sprintf("%s_%s", id, header.Filename))
@@ -126,7 +132,7 @@ func (h *Handler) SaveFile(c *gin.Context) {
 		UserID:      user.ID,
 		FileName:    header.Filename,
 		FilePath:    filePath,
-		ContentType: header.Header.Get("Content-Type"),
+		ContentType: contentType,
 		CreatedAt:   createdAt,
 		ExpiresAt:   h.clipboardExpiresAt(createdAt),
 	}
@@ -136,9 +142,10 @@ func (h *Handler) SaveFile(c *gin.Context) {
 	h.App.DataMutex.Unlock()
 
 	c.JSON(http.StatusOK, models.SaveFileResponse{
-		ID:        id,
-		FileName:  header.Filename,
-		ExpiresAt: item.ExpiresAt,
+		ID:          id,
+		FileName:    header.Filename,
+		ContentType: contentType,
+		ExpiresAt:   item.ExpiresAt,
 	})
 }
 
@@ -177,9 +184,31 @@ func toRecentItemResponse(item *models.ClipboardItem) models.RecentItemResponse 
 		Type:        item.Type,
 		Description: description,
 		FileName:    item.FileName,
+		ContentType: item.ContentType,
 		CreatedAt:   item.CreatedAt,
 		ExpiresAt:   item.ExpiresAt,
 	}
+}
+
+func detectUploadedContentType(file interface {
+	io.Reader
+	io.Seeker
+}, fallback string) (string, error) {
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+		return "", seekErr
+	}
+	if n > 0 {
+		return http.DetectContentType(buffer[:n]), nil
+	}
+	if fallback != "" {
+		return fallback, nil
+	}
+	return "application/octet-stream", nil
 }
 
 func textDescription(content string) string {

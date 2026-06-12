@@ -5,8 +5,10 @@ import {
     FileIcon,
     FileText,
     FolderOpen,
+    Image as ImageIcon,
     Save,
-    Upload
+    Upload,
+    X
 } from 'lucide-react';
 import { AccountMenu } from './account.jsx';
 import { Auth } from './auth.js';
@@ -16,16 +18,23 @@ import './styles.css';
 
 const e = React.createElement;
 
-function RecentTypeIcon({ type }) {
-    const Icon = type === 'text' ? FileText : FileIcon;
+function isImageItem(item) {
+    return item.contentType?.startsWith('image/');
+}
+
+function RecentTypeIcon({ type, contentType }) {
+    const image = contentType?.startsWith('image/');
+    const Icon = type === 'text' ? FileText : image ? ImageIcon : FileIcon;
     return e('span', {
         className: type === 'text'
             ? 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700'
-            : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700',
-        'aria-label': type === 'text' ? 'Text item' : 'File item'
+            : image
+                ? 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700'
+                : 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700',
+        'aria-label': type === 'text' ? 'Text item' : image ? 'Image item' : 'File item'
     },
         e(Icon, { size: 18, 'aria-hidden': true }),
-        e('span', { className: 'sr-only' }, type === 'text' ? 'Text item' : 'File item')
+        e('span', { className: 'sr-only' }, type === 'text' ? 'Text item' : image ? 'Image item' : 'File item')
     );
 }
 
@@ -104,11 +113,12 @@ function ClipboardPanel({ showMessage }) {
         setRecentItems((currentItems) => currentItems.filter((item) => new Date(item.expiresAt) > now));
     }
 
-    function addToRecent(type, id, description, expiresAt) {
+    function addToRecent(type, id, description, expiresAt, contentType) {
         const item = {
             type,
             id,
             description,
+            contentType,
             createdAt: new Date().toISOString(),
             expiresAt
         };
@@ -173,7 +183,7 @@ function ClipboardPanel({ showMessage }) {
                 throw new Error(i18n.t('failed-upload-file'));
             }
             const data = await response.json();
-            addToRecent('file', data.id, data.fileName, data.expiresAt);
+            addToRecent('file', data.id, data.fileName, data.expiresAt, data.contentType);
             loadRecentItems();
             showMessage(i18n.t('file-uploaded'));
         } catch (error) {
@@ -238,6 +248,7 @@ function ClipboardPanel({ showMessage }) {
 }
 
 function RecentItems({ items, setRecent, showMessage }) {
+    const [imagePreview, setImagePreview] = useState(null);
     const validItems = useMemo(() => {
         const now = new Date();
         return items.filter((item) => new Date(item.expiresAt) > now);
@@ -286,6 +297,41 @@ function RecentItems({ items, setRecent, showMessage }) {
         }
     }
 
+    async function previewImage(item) {
+        try {
+            const response = await Auth.fetch(`/api/file/${item.id}`);
+            if (response.status === 404) {
+                showMessage(i18n.t('file-not-found'), 'error');
+                return;
+            }
+            if (!response.ok) {
+                throw new Error(i18n.t('failed-load-image'));
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            setImagePreview((current) => {
+                if (current?.url) {
+                    URL.revokeObjectURL(current.url);
+                }
+                return {
+                    url,
+                    fileName: item.fileName || item.description
+                };
+            });
+        } catch (error) {
+            showMessage(i18n.t('error-loading-image', error.message), 'error');
+        }
+    }
+
+    function closeImagePreview() {
+        setImagePreview((current) => {
+            if (current?.url) {
+                URL.revokeObjectURL(current.url);
+            }
+            return null;
+        });
+    }
+
     function loadItem(type, id) {
         if (type === 'text') {
             return copyTextItem(id);
@@ -307,21 +353,48 @@ function RecentItems({ items, setRecent, showMessage }) {
                 e('div', { key: item.id, className: 'flex items-center justify-between p-3 bg-gray-50 rounded border' },
                     e('div', { className: 'flex-1 min-w-0' },
                         e('div', { className: 'flex items-center gap-2' },
-                            e(RecentTypeIcon, { type: item.type }),
+                            e(RecentTypeIcon, { type: item.type, contentType: item.contentType }),
                             e('span', { className: 'font-medium text-sm truncate' }, item.description)
                         ),
                         e('div', { className: 'text-xs text-gray-500 mt-1' }, i18n.t('created', new Date(item.createdAt).toLocaleString()))
                     ),
-                    e('button', {
-                        className: 'px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs',
-                        title: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file'),
-                        onClick: () => loadItem(item.type, item.id)
-                    }, e(IconLabel, {
-                        icon: item.type === 'text' ? Copy : Download,
-                        label: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file')
-                    }))
+                    e('div', { className: 'flex shrink-0 items-center gap-2' },
+                        isImageItem(item) && e('button', {
+                            className: 'px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs',
+                            title: i18n.t('item-action-preview-image'),
+                            onClick: () => previewImage(item)
+                        }, e(IconLabel, {
+                            icon: ImageIcon,
+                            label: i18n.t('item-action-preview-image')
+                        })),
+                        e('button', {
+                            className: 'px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs',
+                            title: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file'),
+                            onClick: () => loadItem(item.type, item.id)
+                        }, e(IconLabel, {
+                            icon: item.type === 'text' ? Copy : Download,
+                            label: item.type === 'text' ? i18n.t('item-action-copy-text') : i18n.t('item-action-download-file')
+                        }))
+                    )
                 )
-            ))
+            )),
+        imagePreview && e('div', { className: 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4', role: 'dialog', 'aria-modal': 'true', 'aria-label': i18n.t('image-preview-title') },
+            e('div', { className: 'w-full max-w-4xl rounded-lg bg-white p-3 shadow-xl' },
+                e('div', { className: 'mb-3 flex items-center justify-between gap-3' },
+                    e('h3', { className: 'truncate text-base font-semibold text-gray-800' }, imagePreview.fileName || i18n.t('image-preview-title')),
+                    e('button', {
+                        className: 'inline-flex h-9 w-9 items-center justify-center rounded bg-gray-100 text-gray-700 hover:bg-gray-200',
+                        title: i18n.t('close'),
+                        onClick: closeImagePreview
+                    }, e(X, { size: 18, 'aria-hidden': true }), e('span', { className: 'sr-only' }, i18n.t('close')))
+                ),
+                e('img', {
+                    className: 'max-h-[75vh] w-full rounded object-contain',
+                    src: imagePreview.url,
+                    alt: imagePreview.fileName || i18n.t('image-preview-title')
+                })
+            )
+        )
     );
 }
 
